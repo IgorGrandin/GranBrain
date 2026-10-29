@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: fatia-2-auth-agent-api
     content: "Fatia 2: Autenticacao JWT com Rate Limiting, Orquestrador Multi-CLI (Codex, Claude, Gemini) com envelope Generative UI e Endpoints HTTP da API + testes"
-    status: in_progress
+    status: completed
   - id: fatia-3-frontend-generative-ui
     content: "Fatia 3: App Ionic Angular com Login, Voice Command Service (Web Speech API) e Motor Generative UI (5 blocos interativos) + testes"
     status: pending
