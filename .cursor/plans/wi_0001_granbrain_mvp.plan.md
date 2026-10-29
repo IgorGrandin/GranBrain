@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: fatia-3-frontend-generative-ui
     content: "Fatia 3: App Ionic Angular com Login, Voice Command Service (Web Speech API) e Motor Generative UI (5 blocos interativos) + testes"
-    status: pending
+    status: completed
   - id: gate
     content: "Gate final: dotnet build + dotnet test (sem filtro) + npm run build / test no frontend sobre arvore limpa"
     status: pending
