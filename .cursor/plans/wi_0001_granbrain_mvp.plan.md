@@ -4,10 +4,10 @@ overview: "Entrega o monorepo GranBrain (.NET 10 + Ionic Angular) integrado ao c
 todos:
   - id: fatia-1-core-vault-security
     content: "Fatia 1: Solucao .NET 10, VaultPathGuard (Vault Jail), VaultInitializer (AGENTS.md, Home.md, inbox, templates) e ObsidianVaultService (Habitos, Kanban, Zettelkasten, Form/Inbox) + testes"
-    status: pending
+    status: completed
   - id: fatia-2-auth-agent-api
     content: "Fatia 2: Autenticacao JWT com Rate Limiting, Orquestrador Multi-CLI (Codex, Claude, Gemini) com envelope Generative UI e Endpoints HTTP da API + testes"
-    status: pending
+    status: in_progress
   - id: fatia-3-frontend-generative-ui
     content: "Fatia 3: App Ionic Angular com Login, Voice Command Service (Web Speech API) e Motor Generative UI (5 blocos interativos) + testes"
     status: pending
