@@ -1,0 +1,22 @@
+# Binaries & Build
+bin/
+obj/
+out/
+dist/
+.angular/
+node_modules/
+*.user
+*.suo
+*.log
+
+# IDE & OS
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Secrets & Local Env
+appsettings.Development.local.json
+.env
+.env.local
