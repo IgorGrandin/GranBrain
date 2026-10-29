@@ -88,8 +88,8 @@ export class GranBrainApiService {
     });
   }
 
-  public toggleHabit(habitQuery: string, date?: string): Observable<HabitItem> {
-    return this.http.post<HabitItem>(
+  public toggleHabit(habitQuery: string, date?: string): Observable<HabitItem[]> {
+    return this.http.post<HabitItem[]>(
       `${this.baseUrl}/vault/habits/toggle`,
       { habitQuery, date },
       { headers: this.getAuthHeaders() }

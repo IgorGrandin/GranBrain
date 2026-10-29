@@ -187,6 +187,22 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       spyOn(component.voice, 'startListening').and.returnValue(true);
       component.toggleVoice();
       expect(component.voice.startListening).toHaveBeenCalled();
+
+      // Test onHabitToggled with array response from backend
+      const habitItem = { time: '07:30', label: 'Orar/Ler Bíblia', fullText: '- [ ] 07:30 - Orar/Ler Bíblia', completed: false };
+      spyOn(component.api, 'toggleHabit').and.returnValue(
+        jasmine.createSpyObj('Observable', ['subscribe'])
+      );
+      (component.api.toggleHabit as any).and.callFake(() => ({
+        subscribe: (callbacks: any) => {
+          callbacks.next([
+            { time: '07:30', label: 'Orar/Ler Bíblia', fullText: '- [x] 07:30 - Orar/Ler Bíblia', completed: true }
+          ]);
+        }
+      }));
+
+      component.onHabitToggled({ habit: habitItem, blockId: 'blk-habits' });
+      expect(habitItem.completed).toBeTrue();
     });
   });
 });

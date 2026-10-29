@@ -147,7 +147,7 @@ interface ChatMessage {
               class="command-input"
               [(ngModel)]="prompt"
               (keydown.enter)="sendCommand()"
-              placeholder="Digite um comando para o cofre ou peça algo..."
+              placeholder="Digite um comando para o cofre ou 'cli: pergunta para a IA'..."
               [disabled]="loading"
             />
 
@@ -510,8 +510,16 @@ export class AppComponent implements OnInit, OnDestroy {
 
   public onHabitToggled(event: { habit: HabitItem; blockId: string }): void {
     this.api.toggleHabit(event.habit.label).subscribe({
-      next: (updatedHabit) => {
-        event.habit.completed = updatedHabit.completed;
+      next: (habits) => {
+        const list = Array.isArray(habits) ? habits : [habits];
+        const match = list.find(
+          (h) => h.label === event.habit.label || (h.fullText && h.fullText.includes(event.habit.label))
+        );
+        if (match) {
+          event.habit.completed = match.completed;
+        } else {
+          event.habit.completed = !event.habit.completed;
+        }
       }
     });
   }
