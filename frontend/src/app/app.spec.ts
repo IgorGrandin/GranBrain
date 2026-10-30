@@ -140,6 +140,19 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       const notesEl = fixture.debugElement.query(By.css('[data-block-type="markdown-note-list"]'));
       expect(notesEl).withContext('Markdown Note List block should be rendered').not.toBeNull();
 
+      // Redesign Design Classes checks
+      const stripEl = fixture.debugElement.query(By.css('.strip .cell'));
+      expect(stripEl).withContext('Should render .strip .cell in KPI Grid').not.toBeNull();
+
+      const habitCheckEl = fixture.debugElement.query(By.css('.habit .check'));
+      expect(habitCheckEl).withContext('Should render .habit .check in Habit Checklist').not.toBeNull();
+
+      const kanbanColEl = fixture.debugElement.query(By.css('.board .col'));
+      expect(kanbanColEl).withContext('Should render .board .col in Kanban').not.toBeNull();
+
+      const notesSplitEl = fixture.debugElement.query(By.css('.notes-split'));
+      expect(notesSplitEl).withContext('Should render .notes-split in Zettelkasten Notes').not.toBeNull();
+
       // Test Event Dispatching
       let habitDispatched: any = null;
       component.habitToggled.subscribe((event) => {

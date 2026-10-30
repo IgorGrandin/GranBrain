@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: fatia-4-generative-ui-canvas
     content: "Fatia 4: Generative UI Canvas redesenhado com fita .strip de KPIs, lista de hábitos .habit com checkbox tátil e progresso .bar, kanban colunado .board/.col/.kcard e Zettelkasten split-screen .notes-split com realce [[WikiLinks]] + testes"
-    status: pending
+    status: completed
   - id: gate
     content: "Gate final: npm run test + npm run build no frontend e dotnet test no backend sobre árvore limpa"
     status: pending

@@ -1,0 +1,215 @@
+<div class="generative-canvas">
+  <div *ngFor="let block of blocks" class="canvas-block" [ngClass]="'block-' + block.type">
+    
+    <!-- 1. KPI GRID BLOCK (.strip / .cell / .big) -->
+    <div
+      *ngIf="block.type === 'kpi-grid' && block.metrics"
+      class="card"
+      data-block-type="kpi-grid"
+    >
+      <div class="card-h">
+        <div>
+          <span class="eyebrow">Fita Executiva</span>
+          <h2>{{ block.title }}</h2>
+        </div>
+        <span class="pill accent">KPIs</span>
+      </div>
+      <div class="strip">
+        <div *ngFor="let metric of block.metrics" class="cell">
+          <span class="eyebrow">{{ metric.label }}</span>
+          <span class="big">{{ metric.value }}</span>
+          <span *ngIf="metric.subtitle" class="muted small">{{ metric.subtitle }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. HABIT CHECKLIST BLOCK (.habit / .check / .bar) -->
+    <div
+      *ngIf="block.type === 'habit-checklist' && block.habits"
+      class="card"
+      data-block-type="habit-checklist"
+    >
+      <div class="card-h">
+        <div>
+          <span class="eyebrow">Rotina Diária</span>
+          <h2>{{ block.title }}</h2>
+        </div>
+        <span class="pill ok">{{ getCompletedHabitsCount(block.habits) }}/{{ block.habits.length }} concluídos</span>
+      </div>
+
+      <div class="progress-row" style="margin-bottom: 14px;">
+        <div class="bar">
+          <i [style.width.%]="getHabitsProgressPercent(block.habits)"></i>
+        </div>
+        <span class="mono small">{{ getHabitsProgressPercent(block.habits) | number:'1.0-0' }}%</span>
+      </div>
+
+      <div class="habit-list">
+        <div
+          *ngFor="let habit of block.habits"
+          class="habit"
+          [class.done]="habit.completed"
+          data-habit-toggle
+          (click)="onToggleHabit(habit, block.id)"
+        >
+          <button type="button" class="check" [attr.aria-checked]="habit.completed">
+            <svg *ngIf="habit.completed" class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+          </button>
+          <span class="mono t" *ngIf="habit.time">{{ habit.time }}</span>
+          <span class="lbl-h">{{ habit.label }}</span>
+          <span class="pill sm" [ngClass]="habit.completed ? 'ok' : 'accent'" style="margin-left: auto;">
+            {{ habit.completed ? 'Feito' : 'Pendente' }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. KANBAN BOARD BLOCK (.board / .col / .kcard) -->
+    <div
+      *ngIf="block.type === 'kanban-board' && block.kanban"
+      class="card"
+      data-block-type="kanban-board"
+    >
+      <div class="card-h">
+        <div>
+          <span class="eyebrow">Quadro Kanban</span>
+          <h2>{{ block.title }} ({{ block.kanban.boardName }})</h2>
+        </div>
+        <span class="pill info">Kanban</span>
+      </div>
+
+      <div class="board-wrap">
+        <div class="board">
+          <div *ngFor="let col of block.kanban.columns" class="col">
+            <div class="col-h">
+              <strong>{{ col.name }}</strong>
+              <span class="mono">{{ col.tasks.length }}</span>
+            </div>
+            <div *ngFor="let task of col.tasks" class="kcard">
+              <p>{{ task.text }}</p>
+              <button
+                type="button"
+                class="btn ghost sm"
+                data-kanban-move
+                (click)="onMoveKanbanTask(block.kanban.boardName, task, col.name, block.kanban.columns, block.id); $event.stopPropagation();"
+                style="justify-self: end;"
+              >
+                Mover →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. DYNAMIC FORM BLOCK (.card-quick / .quick-form / .stack) -->
+    <div
+      *ngIf="block.type === 'dynamic-form' && block.form"
+      class="card card-quick"
+      data-block-type="dynamic-form"
+    >
+      <div class="card-h">
+        <div>
+          <span class="eyebrow">Captura Estruturada</span>
+          <h2>{{ block.title }}</h2>
+        </div>
+        <span class="pill warn">Formulário</span>
+      </div>
+
+      <form (ngSubmit)="onSubmitForm(block)" class="stack">
+        <div *ngFor="let field of block.form.fields" class="field">
+          <label class="lbl">
+            {{ field.label }}
+            <span *ngIf="field.required" class="req">*</span>
+          </label>
+          <input
+            *ngIf="field.fieldType === 'text' || field.fieldType === 'date'"
+            class="input"
+            [type]="field.fieldType === 'date' ? 'date' : 'text'"
+            [placeholder]="field.placeholder || ''"
+            [(ngModel)]="getFormStore(block.id)[field.key]"
+            [name]="block.id + '_' + field.key"
+            [required]="!!field.required"
+          >
+          <textarea
+            *ngIf="field.fieldType === 'textarea'"
+            class="input"
+            rows="3"
+            [placeholder]="field.placeholder || ''"
+            [(ngModel)]="getFormStore(block.id)[field.key]"
+            [name]="block.id + '_' + field.key"
+            [required]="!!field.required"
+          ></textarea>
+          <select
+            *ngIf="field.fieldType === 'select'"
+            class="input"
+            [(ngModel)]="getFormStore(block.id)[field.key]"
+            [name]="block.id + '_' + field.key"
+          >
+            <option *ngFor="let opt of field.options" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn primary" data-form-submit>
+            {{ block.form.submitLabel || 'Salvar no Cofre' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 5. MARKDOWN NOTE LIST BLOCK (.notes-split / .note / .wl) -->
+    <div
+      *ngIf="block.type === 'markdown-note-list' && block.notes"
+      class="card"
+      data-block-type="markdown-note-list"
+    >
+      <div class="card-h">
+        <div>
+          <span class="eyebrow">Zettelkasten & Literatura</span>
+          <h2>{{ block.title }}</h2>
+        </div>
+        <span class="pill accent">Notas</span>
+      </div>
+
+      <div class="notes-split">
+        <!-- Lista de notas -->
+        <div class="list">
+          <div class="search" style="margin-bottom: 8px;">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input class="input" type="search" placeholder="Filtrar notas..." [(ngModel)]="noteSearchQuery">
+          </div>
+          <button
+            *ngFor="let note of getFilteredNotes(block.notes)"
+            type="button"
+            class="nrow"
+            [class.on]="selectedNote?.title === note.title"
+            (click)="onSelectNote(note, block.id)"
+          >
+            <span class="nt">{{ note.title }}</span>
+            <span class="nm">{{ note.category }} · {{ note.lastModifiedUtc | date:'shortDate' }}</span>
+          </button>
+        </div>
+
+        <!-- Visualizador da nota -->
+        <div class="card note">
+          <div *ngIf="selectedNote || block.notes[0] as activeNote">
+            <span class="eyebrow">{{ activeNote.category }} · {{ activeNote.relativePath }}</span>
+            <h2 style="margin: 8px 0;">{{ activeNote.title }}</h2>
+            <p *ngIf="activeNote.excerpt" [innerHTML]="formatWikiLinks(activeNote.excerpt)"></p>
+            <div *ngIf="activeNote.tags && activeNote.tags.length" class="tags" style="margin-top: 10px;">
+              <span *ngFor="let tag of activeNote.tags" class="pill sm">#{{ tag }}</span>
+            </div>
+            <div class="backlinks" style="margin-top: 16px;">
+              <span class="eyebrow">Conexões Zettelkasten</span>
+              <span class="small muted">Referenciado por notas diárias e índices temáticos.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
