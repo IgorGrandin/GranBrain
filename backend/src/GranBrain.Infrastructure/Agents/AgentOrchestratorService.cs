@@ -39,6 +39,7 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
                 Id: "codex",
                 DisplayName: "OpenAI Codex CLI",
                 PlanName: "ChatGPT Plus",
+                Model: _options.Cli.CodexModel,
                 ExecutablePath: _options.Cli.CodexPath,
                 Installed: _cliRunner.IsExecutableAvailable(_options.Cli.CodexPath),
                 Description: "Agente CLI da OpenAI autenticado via ChatGPT Plus (codex exec)."),
@@ -46,6 +47,7 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
                 Id: "claude",
                 DisplayName: "Claude Code CLI",
                 PlanName: "Claude Pro",
+                Model: _options.Cli.ClaudeModel,
                 ExecutablePath: _options.Cli.ClaudePath,
                 Installed: _cliRunner.IsExecutableAvailable(_options.Cli.ClaudePath),
                 Description: "Agente CLI da Anthropic autenticado via Claude Pro (claude -p)."),
@@ -53,6 +55,7 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
                 Id: "gemini",
                 DisplayName: "Google Antigravity / Gemini CLI",
                 PlanName: "Google AI Pro",
+                Model: _options.Cli.GeminiModel,
                 ExecutablePath: _options.Cli.GeminiPath,
                 Installed: _cliRunner.IsExecutableAvailable(_options.Cli.GeminiPath),
                 Description: "Agente CLI do Google autenticado via Google AI Pro (agy / gemini).")
@@ -159,26 +162,36 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
 
     private async Task<CliProcessResult> InvokeSelectedCliAsync(string provider, string prompt, CancellationToken ct)
     {
+        var model = provider switch
+        {
+            "claude" => _options.Cli.ClaudeModel,
+            "gemini" => _options.Cli.GeminiModel,
+            _ => _options.Cli.CodexModel
+        };
+
         var systemWrappedPrompt =
-            $"Você está operando o cofre Obsidian em '{_guard.VaultRoot}'. Siga o arquivo AGENTS.md. Pedido do usuário: {prompt}";
+            $"Você está operando o cofre Obsidian em '{_guard.VaultRoot}' sob o modelo leve '{model}'. " +
+            $"Siga o protocolo de AGENTS.md e a diretriz de pesquisa com subagentes: " +
+            $"para investigações amplas ou varreduras de múltiplos arquivos, divida o escopo invocando subagentes focados e agregue os resultados. " +
+            $"Pedido do usuário: {prompt}";
 
         return provider switch
         {
             "claude" => await _cliRunner.RunAsync(
                 _options.Cli.ClaudePath,
-                new[] { "-p", systemWrappedPrompt },
+                new[] { "-p", systemWrappedPrompt, "--model", _options.Cli.ClaudeModel },
                 _guard.VaultRoot,
                 _options.Cli.ExecutionTimeoutSeconds,
                 ct),
             "gemini" => await _cliRunner.RunAsync(
                 _options.Cli.GeminiPath,
-                new[] { "--prompt", systemWrappedPrompt },
+                new[] { "--model", _options.Cli.GeminiModel, "--prompt", systemWrappedPrompt },
                 _guard.VaultRoot,
                 _options.Cli.ExecutionTimeoutSeconds,
                 ct),
             _ => await _cliRunner.RunAsync(
                 _options.Cli.CodexPath,
-                new[] { "exec", "-C", _guard.VaultRoot, systemWrappedPrompt },
+                new[] { "exec", "-m", _options.Cli.CodexModel, "-C", _guard.VaultRoot, systemWrappedPrompt },
                 _guard.VaultRoot,
                 _options.Cli.ExecutionTimeoutSeconds,
                 ct)

@@ -25,7 +25,10 @@ public sealed class AuthOptions
 public sealed class CliOptions
 {
     public string CodexPath { get; set; } = @"C:\Users\igor.grandin\AppData\Local\Programs\OpenAI\Codex\bin\codex.exe";
+    public string CodexModel { get; set; } = "gpt-4o-mini";
     public string ClaudePath { get; set; } = "claude";
+    public string ClaudeModel { get; set; } = "claude-3-5-haiku-20241022";
     public string GeminiPath { get; set; } = @"C:\Users\igor.grandin\AppData\Local\agy\bin\agy.exe";
+    public string GeminiModel { get; set; } = "gemini-3.8-flash-low";
     public int ExecutionTimeoutSeconds { get; set; } = 45;
 }

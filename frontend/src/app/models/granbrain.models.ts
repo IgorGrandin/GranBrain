@@ -79,6 +79,7 @@ export interface AiProviderStatus {
   id: string;
   displayName: string;
   planName: string;
+  model: string;
   executablePath: string;
   installed: boolean;
   description: string;

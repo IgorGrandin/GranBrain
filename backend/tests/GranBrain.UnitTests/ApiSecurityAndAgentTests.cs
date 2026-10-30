@@ -135,13 +135,18 @@ public sealed class ApiSecurityAndAgentTests
             var token = (await loginRes.Content.ReadFromJsonAsync<LoginResponse>())!.Token;
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            // 1. Check /api/agent/providers lists codex, claude, gemini
+            // 1. Check /api/agent/providers lists codex, claude, gemini along with configured models
             var providers = await client.GetFromJsonAsync<List<AiProviderStatusDto>>("/api/agent/providers");
             Assert.NotNull(providers);
             Assert.Equal(3, providers.Count);
-            Assert.Contains(providers, p => p.Id == "codex");
-            Assert.Contains(providers, p => p.Id == "claude");
-            Assert.Contains(providers, p => p.Id == "gemini");
+
+            var codex = providers.First(p => p.Id == "codex");
+            var claude = providers.First(p => p.Id == "claude");
+            var gemini = providers.First(p => p.Id == "gemini");
+
+            Assert.Equal("gpt-4o-mini", codex.Model);
+            Assert.Equal("claude-3-5-haiku-20241022", claude.Model);
+            Assert.Equal("gemini-3.8-flash-low", gemini.Model);
 
             // 2. Request full dashboard + form -> returns all 5 Generative UI block types
             var chatRes = await client.PostAsJsonAsync(

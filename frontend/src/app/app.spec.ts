@@ -175,16 +175,22 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       httpMock.verify();
     });
 
-    it('AppComponent handles login, provider switching and voice service trigger', () => {
+    it('AppComponent handles login, provider switching and displays active model', () => {
       fixture.detectChanges();
       expect(component.title).toBe('GranBrain');
 
-      // Test provider switching
+      // Test initial model is lightweight default (gpt-4o-mini)
+      expect(component.selectedProvider).toBe('codex');
+      expect(component.activeModel).toBe('gpt-4o-mini');
+
+      // Test provider switching and active model updates
       component.selectProvider('gemini');
       expect(component.selectedProvider).toBe('gemini');
+      expect(component.activeModel).toBe('gemini-3.8-flash-low');
 
       component.selectProvider('claude');
       expect(component.selectedProvider).toBe('claude');
+      expect(component.activeModel).toBe('claude-3-5-haiku-20241022');
 
       // Test voice triggering
       spyOn(component.voice, 'startListening').and.returnValue(true);

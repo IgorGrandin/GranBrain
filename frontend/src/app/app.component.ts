@@ -47,6 +47,7 @@ interface ChatMessage {
   sender: 'user' | 'agent';
   text: string;
   provider?: string;
+  model?: string;
   timestamp: Date;
 }
 
@@ -92,16 +93,18 @@ interface ChatMessage {
           </ion-title>
 
           <ion-buttons slot="end" *ngIf="isAuthenticated">
-            <!-- Provider Selector Chips -->
+            <!-- Provider & Model Selector Chips -->
             <div class="provider-selector">
               <ion-chip
                 *ngFor="let p of providers"
                 [color]="selectedProvider === p.id ? 'primary' : 'medium'"
                 (click)="selectProvider(p.id)"
                 class="provider-chip"
+                [attr.data-provider-id]="p.id"
               >
                 <ion-icon name="hardware-chip-outline"></ion-icon>
                 <ion-label>{{ p.displayName }}</ion-label>
+                <ion-badge color="tertiary" class="model-badge">{{ p.model }}</ion-badge>
               </ion-chip>
             </div>
 
@@ -151,22 +154,30 @@ interface ChatMessage {
                   {{ loginError }}
                 </div>
 
-                <ion-button expand="block" color="success" type="submit" [disabled]="loading" class="ion-margin-top">
+                <ion-button expand="block" type="submit" color="primary" class="ion-margin-top" [disabled]="loading">
                   <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
-                  <span *ngIf="!loading">Entrar no Sistema</span>
+                  <span *ngIf="!loading">Entrar</span>
                 </ion-button>
               </form>
             </ion-card-content>
           </ion-card>
         </div>
 
-        <!-- WORKSPACE VIEW -->
-        <div *ngIf="isAuthenticated" class="workspace-wrapper">
-          <!-- Chat Feed -->
-          <div class="chat-feed" #chatFeed>
-            <div *ngIf="messages.length === 0" class="empty-state">
-              <h3>Pronto para orquestrar seu segundo cérebro.</h3>
-              <p>Pergunte sobre seus hábitos, kanban, notas ou dê um comando de voz.</p>
+        <!-- MAIN APP VIEW (AUTHENTICATED) -->
+        <div *ngIf="isAuthenticated" class="dashboard-container">
+          
+          <!-- CHAT TIMELINE -->
+          <div class="chat-container">
+            <div *ngIf="messages.length === 0" class="welcome-box">
+              <ion-icon name="sparkles-outline" class="welcome-icon"></ion-icon>
+              <h3>Bem-vindo ao GranBrain AI OS</h3>
+              <p>
+                Operando com modelos otimizados de baixo custo:
+                <span class="active-model-highlight">{{ activeProvider?.displayName }} ({{ activeModel }})</span>.
+              </p>
+              <p class="welcome-subtext">
+                Peça por voz ou texto: <i>"Anota: estudar Clean Architecture"</i>, <i>"Marcar hábito orar"</i> ou <i>"cli: gere um resumo semanal"</i>.
+              </p>
             </div>
 
             <div
@@ -176,6 +187,7 @@ interface ChatMessage {
             >
               <div class="bubble-header">
                 <span class="bubble-sender">{{ msg.sender === 'user' ? 'Você' : (msg.provider || 'GranBrain Agent') }}</span>
+                <ion-badge *ngIf="msg.model" color="dark" class="bubble-model-badge">{{ msg.model }}</ion-badge>
                 <span class="bubble-time mono-font">{{ msg.timestamp | date:'shortTime' }}</span>
               </div>
               <div class="bubble-body">{{ msg.text }}</div>
@@ -216,7 +228,7 @@ interface ChatMessage {
               class="command-input"
               [(ngModel)]="prompt"
               (keydown.enter)="sendCommand()"
-              placeholder="Digite um comando para o cofre ou 'cli: pergunta para a IA'..."
+              [placeholder]="inputPlaceholder"
               [disabled]="loading"
             ></ion-input>
 
@@ -267,6 +279,13 @@ interface ChatMessage {
       cursor: pointer;
       font-size: 0.75rem;
     }
+    .model-badge {
+      margin-left: 6px;
+      font-size: 0.65rem;
+      font-family: monospace;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
 
     /* LOGIN */
     .login-wrapper {
@@ -298,68 +317,107 @@ interface ChatMessage {
       margin-top: 0.5rem;
     }
 
-    /* WORKSPACE */
-    .workspace-wrapper {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
+    /* DASHBOARD */
+    .dashboard-container {
       max-width: 1200px;
       margin: 0 auto;
-      padding-bottom: 1rem;
-    }
-    .chat-feed {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
-      min-height: 120px;
-      max-height: 400px;
-      overflow-y: auto;
+      gap: 1.5rem;
+      padding-bottom: 2rem;
     }
-    .empty-state {
+
+    /* CHAT */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    .welcome-box {
       text-align: center;
       padding: 2rem 1rem;
-      color: #8b949e;
-    }
-    .empty-state h3 { color: #c9d1d9; margin-bottom: 0.3rem; }
-    .chat-bubble {
-      max-width: 85%;
+      background: #161b22;
       border-radius: 8px;
-      padding: 0.75rem 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
+      border: 1px dashed #30363d;
+    }
+    .welcome-icon {
+      font-size: 2.2rem;
+      color: #e3b341;
+      margin-bottom: 0.5rem;
+    }
+    .welcome-box h3 {
+      margin: 0 0 0.5rem 0;
+      color: #58a6ff;
+    }
+    .welcome-box p {
+      margin: 0;
+      color: #8b949e;
+      font-size: 0.9rem;
+    }
+    .active-model-highlight {
+      color: #7ee787;
+      font-weight: 600;
+      font-family: monospace;
+    }
+    .welcome-subtext {
+      margin-top: 0.5rem !important;
+      font-size: 0.8rem !important;
+      opacity: 0.8;
+    }
+    .chat-bubble {
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      max-width: 85%;
+      line-height: 1.45;
+      font-size: 0.95rem;
     }
     .bubble-user {
       align-self: flex-end;
       background: #1f6feb;
       color: #ffffff;
+      border-bottom-right-radius: 2px;
     }
     .bubble-agent {
       align-self: flex-start;
       background: #161b22;
       border: 1px solid #30363d;
-      color: #f0f6fc;
+      color: #c9d1d9;
+      border-bottom-left-radius: 2px;
     }
     .bubble-header {
       display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-      font-size: 0.75rem;
-      opacity: 0.8;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.35rem;
     }
-    .bubble-sender { font-weight: 600; }
-    .bubble-body { font-size: 0.95rem; line-height: 1.4; white-space: pre-wrap; }
+    .bubble-sender {
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .bubble-model-badge {
+      font-size: 0.65rem;
+      font-family: monospace;
+      padding: 1px 4px;
+    }
+    .bubble-time {
+      font-size: 0.75rem;
+      opacity: 0.7;
+      margin-left: auto;
+    }
+    .mono-font { font-family: monospace; }
 
-    /* COMMAND BAR */
+    /* FOOTER */
     .command-toolbar {
       --background: #161b22;
       border-top: 1px solid #30363d;
-      padding: 0.3rem 0.5rem;
+      padding: 0.4rem 0.5rem;
     }
     .command-bar {
       display: flex;
-      gap: 0.5rem;
       align-items: center;
+      gap: 0.5rem;
       max-width: 1200px;
       margin: 0 auto;
       width: 100%;
@@ -386,9 +444,9 @@ export class AppComponent implements OnInit, OnDestroy {
   public prompt = '';
   public selectedProvider = 'codex';
   public providers: AiProviderStatus[] = [
-    { id: 'codex', displayName: 'Codex CLI', planName: 'ChatGPT Plus', executablePath: 'codex', installed: true, description: 'OpenAI Codex CLI' },
-    { id: 'claude', displayName: 'Claude Code', planName: 'Claude Pro', executablePath: 'claude', installed: false, description: 'Anthropic Claude Code CLI' },
-    { id: 'gemini', displayName: 'Gemini CLI', planName: 'Google AI Pro', executablePath: 'gemini', installed: true, description: 'Google Antigravity / Gemini CLI' }
+    { id: 'codex', displayName: 'Codex CLI', planName: 'ChatGPT Plus', model: 'gpt-4o-mini', executablePath: 'codex', installed: true, description: 'OpenAI Codex CLI' },
+    { id: 'claude', displayName: 'Claude Code', planName: 'Claude Pro', model: 'claude-3-5-haiku-20241022', executablePath: 'claude', installed: false, description: 'Anthropic Claude Code CLI' },
+    { id: 'gemini', displayName: 'Gemini CLI', planName: 'Google AI Pro', model: 'gemini-3.8-flash-low', executablePath: 'gemini', installed: true, description: 'Google Antigravity / Gemini CLI' }
   ];
 
   public messages: ChatMessage[] = [];
@@ -409,6 +467,18 @@ export class AppComponent implements OnInit, OnDestroy {
       hardwareChipOutline,
       sparklesOutline
     });
+  }
+
+  public get activeProvider(): AiProviderStatus | undefined {
+    return this.providers.find(p => p.id === this.selectedProvider);
+  }
+
+  public get activeModel(): string {
+    return this.activeProvider?.model || 'modelo básico';
+  }
+
+  public get inputPlaceholder(): string {
+    return `[${this.activeModel}] Digite comando ou 'cli: pergunta'...`;
   }
 
   public ngOnInit(): void {
@@ -489,6 +559,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.prompt = '';
     this.loading = true;
+    const currentModel = this.activeModel;
 
     this.api.sendChat(text, this.selectedProvider, voiceMode).subscribe({
       next: (res) => {
@@ -497,6 +568,7 @@ export class AppComponent implements OnInit, OnDestroy {
           sender: 'agent',
           text: res.replyText,
           provider: res.providerUsed,
+          model: currentModel,
           timestamp: new Date(res.timestampUtc)
         });
 
@@ -570,6 +642,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.messages.push({
           sender: 'agent',
           text: `Nota "${note.title}" criada com sucesso no cofre! (${note.relativePath})`,
+          model: this.activeModel,
           timestamp: new Date()
         });
       }

@@ -45,6 +45,7 @@ public sealed record AiProviderStatusDto(
     string Id,
     string DisplayName,
     string PlanName,
+    string Model,
     string ExecutablePath,
     bool Installed,
     string Description);
