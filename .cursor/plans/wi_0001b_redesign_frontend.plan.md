@@ -4,7 +4,7 @@ overview: "Harmoniza 100% da interface do usuário do GranBrain com o artefato c
 todos:
   - id: fatia-1-tokens-typography
     content: "Fatia 1: Google Fonts, Design Tokens CSS (--bg, --surface, --accent, --line, etc.) e classes utilitárias base em styles.scss e index.html + testes"
-    status: pending
+    status: completed
   - id: fatia-2-login-and-toasts
     content: "Fatia 2: Tela de Login split-screen com ilustração Knowledge Graph SVG, inputs .pw, alertas .err e sistema de Toasts de notificação + testes"
     status: pending

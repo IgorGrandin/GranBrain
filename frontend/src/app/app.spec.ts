@@ -10,6 +10,33 @@ import { GranBrainApiService } from './services/granbrain-api.service';
 import { GenerativeUiBlock } from './models/granbrain.models';
 
 describe('GranBrain Frontend Generative UI & App Suite', () => {
+  describe('GranBrain Design Tokens & Typography', () => {
+    afterEach(() => {
+      document.documentElement.removeAttribute('data-theme');
+    });
+
+    it('defines canonical design tokens in light and dark mode', () => {
+      const computed = getComputedStyle(document.documentElement);
+      const fontDisplay = computed.getPropertyValue('--font-display').trim();
+      const fontBody = computed.getPropertyValue('--font-body').trim();
+      const fontMono = computed.getPropertyValue('--font-mono').trim();
+      const accent = computed.getPropertyValue('--accent').trim();
+
+      expect(fontDisplay).toContain('Bricolage Grotesque');
+      expect(fontBody).toContain('IBM Plex Sans');
+      expect(fontMono).toContain('JetBrains Mono');
+      expect(accent).toBe('#0c7766');
+
+      document.documentElement.setAttribute('data-theme', 'dark');
+      const darkComputed = getComputedStyle(document.documentElement);
+      const darkAccent = darkComputed.getPropertyValue('--accent').trim();
+      const darkBg = darkComputed.getPropertyValue('--bg').trim();
+
+      expect(darkAccent).toBe('#51d0b3');
+      expect(darkBg).toBe('#0b1210');
+    });
+  });
+
   describe('GenerativeCanvasComponent', () => {
     let fixture: ComponentFixture<GenerativeCanvasComponent>;
     let component: GenerativeCanvasComponent;
