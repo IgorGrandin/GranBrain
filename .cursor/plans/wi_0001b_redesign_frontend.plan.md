@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: fatia-3-shell-rail-topbar-voice
     content: "Fatia 3: Shell da Aplicação com .rail fixo (brand, navegação com badges pontilhadas .wi, status do cofre), .topbar translúcida (blur, breadcrumb, chips de modelo) e botão de voz pulsante .btn.mic.live + testes"
-    status: pending
+    status: completed
   - id: fatia-4-generative-ui-canvas
     content: "Fatia 4: Generative UI Canvas redesenhado com fita .strip de KPIs, lista de hábitos .habit com checkbox tátil e progresso .bar, kanban colunado .board/.col/.kcard e Zettelkasten split-screen .notes-split com realce [[WikiLinks]] + testes"
     status: pending

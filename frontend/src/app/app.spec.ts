@@ -273,5 +273,42 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       expect(toastEl).withContext('Should render notification in .toasts .toast').not.toBeNull();
       expect(toastEl.nativeElement.textContent).toContain('Nota salva no cofre');
     });
+
+    it('AppComponent Shell Rail & Live Voice Pulse renders .rail, .topbar, .wi badges and pulses mic when listening', () => {
+      fixture.detectChanges();
+      component.isAuthenticated = true;
+      fixture.detectChanges();
+
+      const appEl = fixture.debugElement.query(By.css('.app'));
+      expect(appEl).withContext('Should render .app shell').not.toBeNull();
+
+      const railEl = fixture.debugElement.query(By.css('.rail'));
+      expect(railEl).withContext('Should render .rail sidebar').not.toBeNull();
+
+      const wiEl = fixture.debugElement.query(By.css('.rail .wi'));
+      expect(wiEl).withContext('Should render .wi badge in rail navigation').not.toBeNull();
+      expect(wiEl.nativeElement.textContent).toContain('0001');
+
+      const topbarEl = fixture.debugElement.query(By.css('.topbar'));
+      expect(topbarEl).withContext('Should render .topbar header').not.toBeNull();
+
+      const crumbEl = fixture.debugElement.query(By.css('.topbar .crumb'));
+      expect(crumbEl).withContext('Should render .crumb breadcrumb').not.toBeNull();
+
+      const userChipEl = fixture.debugElement.query(By.css('.topbar .user-chip'));
+      expect(userChipEl).withContext('Should render .user-chip in topbar').not.toBeNull();
+
+      // Test mic live pulse
+      component.isListening = false;
+      fixture.detectChanges();
+      const micBtnIdle = fixture.debugElement.query(By.css('button[title*="Ativar voz"]'));
+      expect(micBtnIdle).not.toBeNull();
+      expect(micBtnIdle.nativeElement.classList.contains('live')).toBeFalse();
+
+      component.isListening = true;
+      fixture.detectChanges();
+      const micBtnLive = fixture.debugElement.query(By.css('.btn.mic.live'));
+      expect(micBtnLive).withContext('Should add .btn.mic.live class when listening').not.toBeNull();
+    });
   });
 });
