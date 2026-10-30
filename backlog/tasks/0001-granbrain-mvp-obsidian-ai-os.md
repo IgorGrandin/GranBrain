@@ -51,6 +51,7 @@ O cofre Obsidian atual do usuário possui 148 notas Zettelkasten, 5 índices de 
 | D3 | Orquestrador Multi-IA via adaptadores CLI (`IAgentCliProvider` para `codex`, `claude`, `gemini`/`agy`) retornando envelope de Generative UI | 2026-10-29 |
 | D4 | Segurança Defense-in-Depth com Login JWT, Rate Limiting anti-brute-force e `Vault Jail` contra Path Traversal | 2026-10-29 |
 | D5 | Catálogo MVP de 5 blocos de Generative UI (`kpi-grid`, `habit-checklist`, `kanban-board`, `dynamic-form`, `markdown-note-list`) + Voz bidirecional | 2026-10-29 |
+| D6 | Desdobramento do polimento estético do frontend para a task intermediária `0001b` antes da `0002` com `/spec-frontend` | 2026-10-30 |
 
 ### D1 — Estrutura do Monorepo `GranBrain` e Rastreamento Local de Specs
 - **Problema:** O projeto precisa seguir o fluxo disciplinado de `/spec-task`, `/plan-task` e `/execute-ig`, mas é um produto pessoal do desenvolvedor (prefixo `Gran`), separado do Azure Boards corporativo (`brixbroker`).
@@ -91,3 +92,8 @@ O cofre Obsidian atual do usuário possui 148 notas Zettelkasten, 5 índices de 
 - **Alternativas descartadas:** Gerar HTML/JS arbitrário via `innerHTML` sem sanitização (descartado por vulnerabilidade XSS e quebra de layout).
 - **Impacto e dependências:** Contrato compartilhado entre `GranBrain.Core` (DTOs de `GenerativeUiBlock`) e o componente `<app-generative-canvas>` no frontend Angular.
 - **Incertezas:** nenhuma.
+
+### D6 — Desdobramento do Redesign Visual em Task Intermediária 0001b
+- **Problema:** A implementação funcional da 0001 cobriu 100% dos fluxos e regras, mas a interface Angular inicial utilizou componentes brutos do Ionic. A concepção do projeto evoluiu com um design refinado e profissional no artefato Claude Design.
+- **Decisão:** Criar a task intermediária `0001b-redesign-frontend-granbrain.md` antes de iniciar a `0002`, focada exclusivamente na harmonização visual via `/spec-frontend` com o mockup canônico `granbrain-redesign.html`.
+- **Motivo:** Preserva a integridade funcional do MVP 0001 e garante que as próximas tasks (0002 em diante) já construam em cima do layout final, tipografia e tokens consolidados.
