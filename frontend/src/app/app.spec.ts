@@ -215,7 +215,7 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       httpMock.verify();
     });
 
-    it('AppComponent handles login, provider switching and displays active model', () => {
+    it('AppComponent handles login, provider switching and voice service trigger', () => {
       fixture.detectChanges();
       expect(component.title).toBe('GranBrain');
 
