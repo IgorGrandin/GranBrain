@@ -240,5 +240,38 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       component.onHabitToggled({ habit: habitItem, blockId: 'blk-habits' });
       expect(habitItem.completed).toBeTrue();
     });
+
+    it('AppComponent Login Split-Screen & Error Handling renders .login-art with SVG graph and displays .err on failure', () => {
+      component.isAuthenticated = false;
+      fixture.detectChanges();
+
+      const loginEl = fixture.debugElement.query(By.css('.login'));
+      expect(loginEl).withContext('Should render .login container').not.toBeNull();
+
+      const loginArt = fixture.debugElement.query(By.css('.login-art'));
+      expect(loginArt).withContext('Should render .login-art container').not.toBeNull();
+
+      const graphSvg = fixture.debugElement.query(By.css('.login-art svg.graph'));
+      expect(graphSvg).withContext('Should render SVG Knowledge Graph').not.toBeNull();
+
+      const loginForm = fixture.debugElement.query(By.css('.login-form'));
+      expect(loginForm).withContext('Should render .login-form container').not.toBeNull();
+
+      // Trigger invalid login to test .err container
+      component.loginError = 'Credenciais inválidas';
+      fixture.detectChanges();
+
+      const errEl = fixture.debugElement.query(By.css('.err'));
+      expect(errEl).withContext('Should display error in .err container').not.toBeNull();
+      expect(errEl.nativeElement.textContent).toContain('Credenciais inválidas');
+
+      // Test toast notification system
+      (component as any).showToast('Nota salva no cofre', 'ok');
+      fixture.detectChanges();
+
+      const toastEl = fixture.debugElement.query(By.css('.toasts .toast'));
+      expect(toastEl).withContext('Should render notification in .toasts .toast').not.toBeNull();
+      expect(toastEl.nativeElement.textContent).toContain('Nota salva no cofre');
+    });
   });
 });

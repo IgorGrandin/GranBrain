@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: fatia-2-login-and-toasts
     content: "Fatia 2: Tela de Login split-screen com ilustração Knowledge Graph SVG, inputs .pw, alertas .err e sistema de Toasts de notificação + testes"
-    status: pending
+    status: completed
   - id: fatia-3-shell-rail-topbar-voice
     content: "Fatia 3: Shell da Aplicação com .rail fixo (brand, navegação com badges pontilhadas .wi, status do cofre), .topbar translúcida (blur, breadcrumb, chips de modelo) e botão de voz pulsante .btn.mic.live + testes"
     status: pending

@@ -2,37 +2,6 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
-import {
-  IonApp,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonButtons,
-  IonButton,
-  IonIcon,
-  IonBadge,
-  IonChip,
-  IonContent,
-  IonFooter,
-  IonCard,
-  IonCardHeader,
-  IonCardTitle,
-  IonCardSubtitle,
-  IonCardContent,
-  IonItem,
-  IonLabel,
-  IonInput,
-  IonSpinner
-} from '@ionic/angular/standalone';
-import { addIcons } from 'ionicons';
-import {
-  micOutline,
-  micOffOutline,
-  sendOutline,
-  logOutOutline,
-  hardwareChipOutline,
-  sparklesOutline
-} from 'ionicons/icons';
 import { GranBrainApiService } from './services/granbrain-api.service';
 import { VoiceService } from './services/voice.service';
 import {
@@ -43,12 +12,18 @@ import {
 } from './models/granbrain.models';
 import { GenerativeCanvasComponent } from './components/generative-canvas/generative-canvas.component';
 
-interface ChatMessage {
+export interface ChatMessage {
   sender: 'user' | 'agent';
   text: string;
   provider?: string;
   model?: string;
   timestamp: Date;
+}
+
+export interface ToastNotification {
+  id: number;
+  message: string;
+  type: 'ok' | 'warn' | 'danger';
 }
 
 @Component({
@@ -57,389 +32,21 @@ interface ChatMessage {
   imports: [
     CommonModule,
     FormsModule,
-    IonApp,
-    IonHeader,
-    IonToolbar,
-    IonTitle,
-    IonButtons,
-    IonButton,
-    IonIcon,
-    IonBadge,
-    IonChip,
-    IonContent,
-    IonFooter,
-    IonCard,
-    IonCardHeader,
-    IonCardTitle,
-    IonCardSubtitle,
-    IonCardContent,
-    IonItem,
-    IonLabel,
-    IonInput,
-    IonSpinner,
     GenerativeCanvasComponent
   ],
-  template: `
-    <ion-app class="granbrain-app">
-      <!-- HEADER -->
-      <ion-header class="ion-no-border">
-        <ion-toolbar color="dark">
-          <ion-title>
-            <div class="brand-zone">
-              <span class="brand-icon">🧠</span>
-              <span class="brand-title">GranBrain</span>
-              <ion-badge color="dark" class="brand-badge">Obsidian AI OS</ion-badge>
-            </div>
-          </ion-title>
-
-          <ion-buttons slot="end" *ngIf="isAuthenticated">
-            <!-- Provider & Model Selector Chips -->
-            <div class="provider-selector">
-              <ion-chip
-                *ngFor="let p of providers"
-                [color]="selectedProvider === p.id ? 'primary' : 'medium'"
-                (click)="selectProvider(p.id)"
-                class="provider-chip"
-                [attr.data-provider-id]="p.id"
-              >
-                <ion-icon name="hardware-chip-outline"></ion-icon>
-                <ion-label>{{ p.displayName }}</ion-label>
-                <ion-badge color="tertiary" class="model-badge">{{ p.model }}</ion-badge>
-              </ion-chip>
-            </div>
-
-            <ion-button color="danger" fill="clear" (click)="logout()" title="Sair">
-              <ion-icon slot="icon-only" name="log-out-outline"></ion-icon>
-            </ion-button>
-          </ion-buttons>
-        </ion-toolbar>
-      </ion-header>
-
-      <!-- CONTENT -->
-      <ion-content class="ion-padding" [fullscreen]="true">
-        
-        <!-- LOGIN VIEW -->
-        <div *ngIf="!isAuthenticated" class="login-wrapper">
-          <ion-card class="login-card">
-            <ion-card-header>
-              <ion-card-title color="primary">Acesso ao GranBrain</ion-card-title>
-              <ion-card-subtitle>Autentique-se para interagir com o cofre Obsidian e o Orquestrador Multi-IA.</ion-card-subtitle>
-            </ion-card-header>
-
-            <ion-card-content>
-              <form (ngSubmit)="login()" class="login-form">
-                <ion-item fill="outline" class="form-item ion-margin-bottom">
-                  <ion-label position="stacked">Usuário</ion-label>
-                  <ion-input
-                    type="text"
-                    name="username"
-                    [(ngModel)]="username"
-                    required
-                    placeholder="Seu usuário"
-                  ></ion-input>
-                </ion-item>
-
-                <ion-item fill="outline" class="form-item ion-margin-bottom">
-                  <ion-label position="stacked">Senha</ion-label>
-                  <ion-input
-                    type="password"
-                    name="password"
-                    [(ngModel)]="password"
-                    required
-                    placeholder="Sua senha"
-                  ></ion-input>
-                </ion-item>
-
-                <div *ngIf="loginError" class="error-banner">
-                  {{ loginError }}
-                </div>
-
-                <ion-button expand="block" type="submit" color="primary" class="ion-margin-top" [disabled]="loading">
-                  <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
-                  <span *ngIf="!loading">Entrar</span>
-                </ion-button>
-              </form>
-            </ion-card-content>
-          </ion-card>
-        </div>
-
-        <!-- MAIN APP VIEW (AUTHENTICATED) -->
-        <div *ngIf="isAuthenticated" class="dashboard-container">
-          
-          <!-- CHAT TIMELINE -->
-          <div class="chat-container">
-            <div *ngIf="messages.length === 0" class="welcome-box">
-              <ion-icon name="sparkles-outline" class="welcome-icon"></ion-icon>
-              <h3>Bem-vindo ao GranBrain AI OS</h3>
-              <p>
-                Operando com modelos otimizados de baixo custo:
-                <span class="active-model-highlight">{{ activeProvider?.displayName }} ({{ activeModel }})</span>.
-              </p>
-              <p class="welcome-subtext">
-                Peça por voz ou texto: <i>"Anota: estudar Clean Architecture"</i>, <i>"Marcar hábito orar"</i> ou <i>"cli: gere um resumo semanal"</i>.
-              </p>
-            </div>
-
-            <div
-              *ngFor="let msg of messages"
-              class="chat-bubble"
-              [ngClass]="msg.sender === 'user' ? 'bubble-user' : 'bubble-agent'"
-            >
-              <div class="bubble-header">
-                <span class="bubble-sender">{{ msg.sender === 'user' ? 'Você' : (msg.provider || 'GranBrain Agent') }}</span>
-                <ion-badge *ngIf="msg.model" color="dark" class="bubble-model-badge">{{ msg.model }}</ion-badge>
-                <span class="bubble-time mono-font">{{ msg.timestamp | date:'shortTime' }}</span>
-              </div>
-              <div class="bubble-body">{{ msg.text }}</div>
-            </div>
-          </div>
-
-          <!-- GENERATIVE UI CANVAS -->
-          <app-generative-canvas
-            *ngIf="currentBlocks.length > 0"
-            [blocks]="currentBlocks"
-            (habitToggled)="onHabitToggled($event)"
-            (kanbanTaskMoved)="onKanbanTaskMoved($event)"
-            (dynamicFormSubmitted)="onDynamicFormSubmitted($event)"
-            (noteSelected)="onNoteSelected($event)"
-          ></app-generative-canvas>
-        </div>
-
-      </ion-content>
-
-      <!-- COMMAND BAR FOOTER -->
-      <ion-footer *ngIf="isAuthenticated" class="ion-no-border">
-        <ion-toolbar color="dark" class="command-toolbar">
-          <div class="command-bar">
-            <!-- Voice Button -->
-            <ion-button
-              shape="round"
-              [color]="isListening ? 'danger' : 'medium'"
-              fill="solid"
-              (click)="toggleVoice()"
-              [title]="isListening ? 'Ouvindo... Clique para parar' : 'Comando por voz'"
-              class="btn-voice"
-            >
-              <ion-icon slot="icon-only" [name]="isListening ? 'mic-off-outline' : 'mic-outline'"></ion-icon>
-            </ion-button>
-
-            <!-- Text Prompt Input -->
-            <ion-input
-              class="command-input"
-              [(ngModel)]="prompt"
-              (keydown.enter)="sendCommand()"
-              [placeholder]="inputPlaceholder"
-              [disabled]="loading"
-            ></ion-input>
-
-            <!-- Send Button -->
-            <ion-button
-              shape="round"
-              color="success"
-              (click)="sendCommand()"
-              [disabled]="loading || !prompt.trim()"
-              class="btn-send"
-            >
-              <ion-spinner *ngIf="loading" name="dots"></ion-spinner>
-              <ion-icon *ngIf="!loading" slot="icon-only" name="send-outline"></ion-icon>
-            </ion-button>
-          </div>
-        </ion-toolbar>
-      </ion-footer>
-    </ion-app>
-  `,
-  styles: [`
-    .granbrain-app {
-      background: #0d1117;
-      color: #f0f6fc;
-    }
-    .brand-zone {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .brand-icon { font-size: 1.3rem; }
-    .brand-title {
-      font-weight: 700;
-      font-size: 1.15rem;
-      color: #58a6ff;
-      letter-spacing: 0.5px;
-    }
-    .brand-badge {
-      font-size: 0.7rem;
-      border: 1px solid #30363d;
-    }
-    .provider-selector {
-      display: flex;
-      gap: 0.3rem;
-      align-items: center;
-      margin-right: 0.5rem;
-    }
-    .provider-chip {
-      cursor: pointer;
-      font-size: 0.75rem;
-    }
-    .model-badge {
-      margin-left: 6px;
-      font-size: 0.65rem;
-      font-family: monospace;
-      padding: 2px 5px;
-      border-radius: 4px;
-    }
-
-    /* LOGIN */
-    .login-wrapper {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 80vh;
-    }
-    .login-card {
-      --background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 8px;
-      max-width: 420px;
-      width: 100%;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    }
-    .form-item {
-      --background: #0d1117;
-      --border-color: #30363d;
-      border-radius: 6px;
-    }
-    .error-banner {
-      background: rgba(248, 81, 73, 0.15);
-      border: 1px solid #f85149;
-      color: #ff7b72;
-      padding: 0.6rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      margin-top: 0.5rem;
-    }
-
-    /* DASHBOARD */
-    .dashboard-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-      padding-bottom: 2rem;
-    }
-
-    /* CHAT */
-    .chat-container {
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
-    }
-    .welcome-box {
-      text-align: center;
-      padding: 2rem 1rem;
-      background: #161b22;
-      border-radius: 8px;
-      border: 1px dashed #30363d;
-    }
-    .welcome-icon {
-      font-size: 2.2rem;
-      color: #e3b341;
-      margin-bottom: 0.5rem;
-    }
-    .welcome-box h3 {
-      margin: 0 0 0.5rem 0;
-      color: #58a6ff;
-    }
-    .welcome-box p {
-      margin: 0;
-      color: #8b949e;
-      font-size: 0.9rem;
-    }
-    .active-model-highlight {
-      color: #7ee787;
-      font-weight: 600;
-      font-family: monospace;
-    }
-    .welcome-subtext {
-      margin-top: 0.5rem !important;
-      font-size: 0.8rem !important;
-      opacity: 0.8;
-    }
-    .chat-bubble {
-      padding: 0.8rem 1rem;
-      border-radius: 8px;
-      max-width: 85%;
-      line-height: 1.45;
-      font-size: 0.95rem;
-    }
-    .bubble-user {
-      align-self: flex-end;
-      background: #1f6feb;
-      color: #ffffff;
-      border-bottom-right-radius: 2px;
-    }
-    .bubble-agent {
-      align-self: flex-start;
-      background: #161b22;
-      border: 1px solid #30363d;
-      color: #c9d1d9;
-      border-bottom-left-radius: 2px;
-    }
-    .bubble-header {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 0.35rem;
-    }
-    .bubble-sender {
-      font-weight: 600;
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .bubble-model-badge {
-      font-size: 0.65rem;
-      font-family: monospace;
-      padding: 1px 4px;
-    }
-    .bubble-time {
-      font-size: 0.75rem;
-      opacity: 0.7;
-      margin-left: auto;
-    }
-    .mono-font { font-family: monospace; }
-
-    /* FOOTER */
-    .command-toolbar {
-      --background: #161b22;
-      border-top: 1px solid #30363d;
-      padding: 0.4rem 0.5rem;
-    }
-    .command-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      max-width: 1200px;
-      margin: 0 auto;
-      width: 100%;
-    }
-    .command-input {
-      --background: #0d1117;
-      --color: #f0f6fc;
-      --placeholder-color: #8b949e;
-      --border-color: #30363d;
-      border: 1px solid #30363d;
-      border-radius: 20px;
-      padding: 0 0.8rem;
-    }
-  `]
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.scss'
 })
 export class AppComponent implements OnInit, OnDestroy {
   public title = 'GranBrain';
   public isAuthenticated = false;
   public username = '';
   public password = '';
+  public showPassword = false;
   public loginError = '';
   public loading = false;
+  public isDarkMode = false;
+  public currentView = 'dashboard';
 
   public prompt = '';
   public selectedProvider = 'codex';
@@ -452,22 +59,15 @@ export class AppComponent implements OnInit, OnDestroy {
   public messages: ChatMessage[] = [];
   public currentBlocks: GenerativeUiBlock[] = [];
   public isListening = false;
+  public toasts: ToastNotification[] = [];
 
+  private toastIdCounter = 0;
   private subs = new Subscription();
 
   constructor(
     public api: GranBrainApiService,
     public voice: VoiceService
-  ) {
-    addIcons({
-      micOutline,
-      micOffOutline,
-      sendOutline,
-      logOutOutline,
-      hardwareChipOutline,
-      sparklesOutline
-    });
-  }
+  ) {}
 
   public get activeProvider(): AiProviderStatus | undefined {
     return this.providers.find(p => p.id === this.selectedProvider);
@@ -509,6 +109,27 @@ export class AppComponent implements OnInit, OnDestroy {
     this.subs.unsubscribe();
   }
 
+  public showToast(message: string, type: 'ok' | 'warn' | 'danger' = 'ok'): void {
+    const toast: ToastNotification = {
+      id: ++this.toastIdCounter,
+      message,
+      type
+    };
+    this.toasts.push(toast);
+    setTimeout(() => {
+      this.toasts = this.toasts.filter(t => t.id !== toast.id);
+    }, 4000);
+  }
+
+  public toggleTheme(): void {
+    this.isDarkMode = !this.isDarkMode;
+    if (this.isDarkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  }
+
   public login(): void {
     if (!this.username.trim() || !this.password.trim()) return;
     this.loading = true;
@@ -518,12 +139,14 @@ export class AppComponent implements OnInit, OnDestroy {
       next: () => {
         this.isAuthenticated = true;
         this.loading = false;
+        this.showToast('Conectado com sucesso ao cofre!', 'ok');
         this.loadProviders();
         this.loadInitialOverview();
       },
       error: (err) => {
         this.loading = false;
-        this.loginError = err.error?.message || 'Falha na autenticação.';
+        this.loginError = err.error?.message || 'Falha na autenticação. Verifique usuário e senha.';
+        this.showToast('Credenciais inválidas', 'warn');
       }
     });
   }
@@ -533,6 +156,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isAuthenticated = false;
     this.messages = [];
     this.currentBlocks = [];
+    this.showToast('Sessão encerrada', 'ok');
   }
 
   public selectProvider(providerId: string): void {
@@ -587,6 +211,7 @@ export class AppComponent implements OnInit, OnDestroy {
           text: 'Erro ao processar requisição com o orquestrador.',
           timestamp: new Date()
         });
+        this.showToast('Erro ao comunicar com o orquestrador', 'danger');
       }
     });
   }
@@ -603,6 +228,7 @@ export class AppComponent implements OnInit, OnDestroy {
         } else {
           event.habit.completed = !event.habit.completed;
         }
+        this.showToast(`Hábito "${event.habit.label}" atualizado`, 'ok');
       }
     });
   }
@@ -619,6 +245,7 @@ export class AppComponent implements OnInit, OnDestroy {
         if (blk) {
           blk.kanban = board;
         }
+        this.showToast(`Tarefa movida para ${event.targetColumn}`, 'ok');
       }
     });
   }
@@ -645,6 +272,7 @@ export class AppComponent implements OnInit, OnDestroy {
           model: this.activeModel,
           timestamp: new Date()
         });
+        this.showToast(`Nota "${note.title}" criada`, 'ok');
       }
     });
   }
