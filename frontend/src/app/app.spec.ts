@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { provideIonicAngular } from '@ionic/angular/standalone';
 import { By } from '@angular/platform-browser';
 import { AppComponent } from './app.component';
 import { GenerativeCanvasComponent } from './components/generative-canvas/generative-canvas.component';
@@ -15,7 +16,8 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
 
     beforeEach(async () => {
       await TestBed.configureTestingModule({
-        imports: [GenerativeCanvasComponent]
+        imports: [GenerativeCanvasComponent],
+        providers: [provideIonicAngular()]
       }).compileComponents();
 
       fixture = TestBed.createComponent(GenerativeCanvasComponent);
@@ -158,6 +160,7 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
         providers: [
           provideHttpClient(),
           provideHttpClientTesting(),
+          provideIonicAngular(),
           GranBrainApiService,
           VoiceService
         ]

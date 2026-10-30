@@ -2,6 +2,37 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
+import {
+  IonApp,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonButtons,
+  IonButton,
+  IonIcon,
+  IonBadge,
+  IonChip,
+  IonContent,
+  IonFooter,
+  IonCard,
+  IonCardHeader,
+  IonCardTitle,
+  IonCardSubtitle,
+  IonCardContent,
+  IonItem,
+  IonLabel,
+  IonInput,
+  IonSpinner
+} from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import {
+  micOutline,
+  micOffOutline,
+  sendOutline,
+  logOutOutline,
+  hardwareChipOutline,
+  sparklesOutline
+} from 'ionicons/icons';
 import { GranBrainApiService } from './services/granbrain-api.service';
 import { VoiceService } from './services/voice.service';
 import {
@@ -22,82 +53,115 @@ interface ChatMessage {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, GenerativeCanvasComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    IonApp,
+    IonHeader,
+    IonToolbar,
+    IonTitle,
+    IonButtons,
+    IonButton,
+    IonIcon,
+    IonBadge,
+    IonChip,
+    IonContent,
+    IonFooter,
+    IonCard,
+    IonCardHeader,
+    IonCardTitle,
+    IonCardSubtitle,
+    IonCardContent,
+    IonItem,
+    IonLabel,
+    IonInput,
+    IonSpinner,
+    GenerativeCanvasComponent
+  ],
   template: `
-    <div class="granbrain-container">
+    <ion-app class="granbrain-app">
       <!-- HEADER -->
-      <header class="app-header">
-        <div class="brand-zone">
-          <span class="brand-icon">🧠</span>
-          <span class="brand-title">GranBrain</span>
-          <span class="brand-tag">Obsidian AI OS</span>
-        </div>
+      <ion-header class="ion-no-border">
+        <ion-toolbar color="dark">
+          <ion-title>
+            <div class="brand-zone">
+              <span class="brand-icon">🧠</span>
+              <span class="brand-title">GranBrain</span>
+              <ion-badge color="dark" class="brand-badge">Obsidian AI OS</ion-badge>
+            </div>
+          </ion-title>
 
-        <div *ngIf="isAuthenticated" class="header-controls">
-          <!-- Provider Selector -->
-          <div class="provider-selector">
-            <span class="selector-label">IA:</span>
-            <button
-              *ngFor="let p of providers"
-              type="button"
-              class="provider-pill"
-              [class.active]="selectedProvider === p.id"
-              (click)="selectProvider(p.id)"
-            >
-              {{ p.displayName }}
-            </button>
-          </div>
+          <ion-buttons slot="end" *ngIf="isAuthenticated">
+            <!-- Provider Selector Chips -->
+            <div class="provider-selector">
+              <ion-chip
+                *ngFor="let p of providers"
+                [color]="selectedProvider === p.id ? 'primary' : 'medium'"
+                (click)="selectProvider(p.id)"
+                class="provider-chip"
+              >
+                <ion-icon name="hardware-chip-outline"></ion-icon>
+                <ion-label>{{ p.displayName }}</ion-label>
+              </ion-chip>
+            </div>
 
-          <button type="button" class="btn-logout" (click)="logout()">Sair</button>
-        </div>
-      </header>
+            <ion-button color="danger" fill="clear" (click)="logout()" title="Sair">
+              <ion-icon slot="icon-only" name="log-out-outline"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
 
-      <!-- MAIN CONTENT -->
-      <main class="app-main">
+      <!-- CONTENT -->
+      <ion-content class="ion-padding" [fullscreen]="true">
+        
         <!-- LOGIN VIEW -->
-        <section *ngIf="!isAuthenticated" class="login-section">
-          <div class="login-card">
-            <h2>Acesso ao GranBrain</h2>
-            <p class="login-desc">Autentique-se para interagir com o cofre Obsidian e o Orquestrador Multi-IA.</p>
+        <div *ngIf="!isAuthenticated" class="login-wrapper">
+          <ion-card class="login-card">
+            <ion-card-header>
+              <ion-card-title color="primary">Acesso ao GranBrain</ion-card-title>
+              <ion-card-subtitle>Autentique-se para interagir com o cofre Obsidian e o Orquestrador Multi-IA.</ion-card-subtitle>
+            </ion-card-header>
 
-            <form (ngSubmit)="login()" class="login-form">
-              <div class="form-group">
-                <label>Usuário</label>
-                <input
-                  type="text"
-                  name="username"
-                  class="input-field"
-                  [(ngModel)]="username"
-                  required
-                  placeholder="Seu usuário"
-                />
-              </div>
+            <ion-card-content>
+              <form (ngSubmit)="login()" class="login-form">
+                <ion-item fill="outline" class="form-item ion-margin-bottom">
+                  <ion-label position="stacked">Usuário</ion-label>
+                  <ion-input
+                    type="text"
+                    name="username"
+                    [(ngModel)]="username"
+                    required
+                    placeholder="Seu usuário"
+                  ></ion-input>
+                </ion-item>
 
-              <div class="form-group">
-                <label>Senha</label>
-                <input
-                  type="password"
-                  name="password"
-                  class="input-field"
-                  [(ngModel)]="password"
-                  required
-                  placeholder="Sua senha"
-                />
-              </div>
+                <ion-item fill="outline" class="form-item ion-margin-bottom">
+                  <ion-label position="stacked">Senha</ion-label>
+                  <ion-input
+                    type="password"
+                    name="password"
+                    [(ngModel)]="password"
+                    required
+                    placeholder="Sua senha"
+                  ></ion-input>
+                </ion-item>
 
-              <div *ngIf="loginError" class="error-banner">
-                {{ loginError }}
-              </div>
+                <div *ngIf="loginError" class="error-banner">
+                  {{ loginError }}
+                </div>
 
-              <button type="submit" class="btn-primary" [disabled]="loading">
-                {{ loading ? 'Entrando...' : 'Entrar no Sistema' }}
-              </button>
-            </form>
-          </div>
-        </section>
+                <ion-button expand="block" color="success" type="submit" [disabled]="loading" class="ion-margin-top">
+                  <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
+                  <span *ngIf="!loading">Entrar no Sistema</span>
+                </ion-button>
+              </form>
+            </ion-card-content>
+          </ion-card>
+        </div>
 
-        <!-- DASHBOARD & CHAT VIEW -->
-        <section *ngIf="isAuthenticated" class="workspace-section">
+        <!-- WORKSPACE VIEW -->
+        <div *ngIf="isAuthenticated" class="workspace-wrapper">
           <!-- Chat Feed -->
           <div class="chat-feed" #chatFeed>
             <div *ngIf="messages.length === 0" class="empty-state">
@@ -127,178 +191,136 @@ interface ChatMessage {
             (dynamicFormSubmitted)="onDynamicFormSubmitted($event)"
             (noteSelected)="onNoteSelected($event)"
           ></app-generative-canvas>
+        </div>
 
-          <!-- COMMAND BAR -->
+      </ion-content>
+
+      <!-- COMMAND BAR FOOTER -->
+      <ion-footer *ngIf="isAuthenticated" class="ion-no-border">
+        <ion-toolbar color="dark" class="command-toolbar">
           <div class="command-bar">
             <!-- Voice Button -->
-            <button
-              type="button"
-              class="btn-voice"
-              [class.listening]="isListening"
+            <ion-button
+              shape="round"
+              [color]="isListening ? 'danger' : 'medium'"
+              fill="solid"
               (click)="toggleVoice()"
               [title]="isListening ? 'Ouvindo... Clique para parar' : 'Comando por voz'"
+              class="btn-voice"
             >
-              🎤
-            </button>
+              <ion-icon slot="icon-only" [name]="isListening ? 'mic-off-outline' : 'mic-outline'"></ion-icon>
+            </ion-button>
 
             <!-- Text Prompt Input -->
-            <input
-              type="text"
+            <ion-input
               class="command-input"
               [(ngModel)]="prompt"
               (keydown.enter)="sendCommand()"
               placeholder="Digite um comando para o cofre ou 'cli: pergunta para a IA'..."
               [disabled]="loading"
-            />
+            ></ion-input>
 
             <!-- Send Button -->
-            <button
-              type="button"
-              class="btn-send"
+            <ion-button
+              shape="round"
+              color="success"
               (click)="sendCommand()"
               [disabled]="loading || !prompt.trim()"
+              class="btn-send"
             >
-              {{ loading ? '...' : 'Enviar' }}
-            </button>
+              <ion-spinner *ngIf="loading" name="dots"></ion-spinner>
+              <ion-icon *ngIf="!loading" slot="icon-only" name="send-outline"></ion-icon>
+            </ion-button>
           </div>
-        </section>
-      </main>
-    </div>
+        </ion-toolbar>
+      </ion-footer>
+    </ion-app>
   `,
   styles: [`
-    .granbrain-container {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
+    .granbrain-app {
       background: #0d1117;
       color: #f0f6fc;
-      overflow: hidden;
     }
-    .app-header {
+    .brand-zone {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 0.75rem 1.5rem;
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
+      gap: 0.5rem;
     }
-    .brand-zone { display: flex; align-items: center; gap: 0.5rem; }
-    .brand-icon { font-size: 1.4rem; }
-    .brand-title { font-weight: 700; font-size: 1.2rem; color: #58a6ff; letter-spacing: 0.5px; }
-    .brand-tag { font-size: 0.75rem; color: #8b949e; background: #21262d; padding: 0.15rem 0.4rem; border-radius: 4px; }
-
-    .header-controls { display: flex; align-items: center; gap: 1rem; }
-    .provider-selector { display: flex; align-items: center; gap: 0.4rem; }
-    .selector-label { font-size: 0.8rem; color: #8b949e; font-weight: 600; }
-    .provider-pill {
-      background: #21262d;
+    .brand-icon { font-size: 1.3rem; }
+    .brand-title {
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: #58a6ff;
+      letter-spacing: 0.5px;
+    }
+    .brand-badge {
+      font-size: 0.7rem;
       border: 1px solid #30363d;
-      color: #c9d1d9;
-      border-radius: 20px;
-      padding: 0.25rem 0.75rem;
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: all 0.2s;
     }
-    .provider-pill.active {
-      background: #1f6feb;
-      border-color: #58a6ff;
-      color: #ffffff;
-      font-weight: 600;
-    }
-    .btn-logout {
-      background: transparent;
-      border: 1px solid #30363d;
-      color: #f85149;
-      padding: 0.25rem 0.6rem;
-      border-radius: 4px;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .btn-logout:hover { background: rgba(248, 81, 73, 0.1); }
-
-    .app-main {
-      flex: 1;
+    .provider-selector {
       display: flex;
-      flex-direction: column;
-      overflow-y: auto;
-      padding: 1.5rem;
+      gap: 0.3rem;
+      align-items: center;
+      margin-right: 0.5rem;
+    }
+    .provider-chip {
+      cursor: pointer;
+      font-size: 0.75rem;
     }
 
     /* LOGIN */
-    .login-section {
+    .login-wrapper {
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100%;
+      min-height: 80vh;
     }
     .login-card {
-      background: #161b22;
+      --background: #161b22;
       border: 1px solid #30363d;
       border-radius: 8px;
-      padding: 2rem;
-      max-width: 400px;
+      max-width: 420px;
       width: 100%;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
-    .login-card h2 { margin-top: 0; color: #58a6ff; font-size: 1.4rem; }
-    .login-desc { color: #8b949e; font-size: 0.85rem; margin-bottom: 1.5rem; }
-    .login-form { display: flex; flex-direction: column; gap: 1rem; }
-    .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
-    .form-group label { font-size: 0.85rem; color: #c9d1d9; }
-    .input-field {
-      background: #0d1117;
-      border: 1px solid #30363d;
+    .form-item {
+      --background: #0d1117;
+      --border-color: #30363d;
       border-radius: 6px;
-      padding: 0.6rem;
-      color: #f0f6fc;
-      outline: none;
     }
-    .input-field:focus { border-color: #58a6ff; }
-    .btn-primary {
-      background: #238636;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      padding: 0.75rem;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 0.5rem;
-    }
-    .btn-primary:hover { background: #2ea043; }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
     .error-banner {
       background: rgba(248, 81, 73, 0.15);
       border: 1px solid #f85149;
       color: #ff7b72;
-      padding: 0.5rem;
+      padding: 0.6rem;
       border-radius: 6px;
       font-size: 0.85rem;
+      margin-top: 0.5rem;
     }
 
     /* WORKSPACE */
-    .workspace-section {
+    .workspace-wrapper {
       display: flex;
       flex-direction: column;
       gap: 1rem;
       max-width: 1200px;
-      width: 100%;
       margin: 0 auto;
-      flex: 1;
+      padding-bottom: 1rem;
     }
     .chat-feed {
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
-      flex: 1;
+      min-height: 120px;
+      max-height: 400px;
       overflow-y: auto;
     }
     .empty-state {
       text-align: center;
-      padding: 3rem 1rem;
+      padding: 2rem 1rem;
       color: #8b949e;
     }
-    .empty-state h3 { color: #c9d1d9; margin-bottom: 0.5rem; }
+    .empty-state h3 { color: #c9d1d9; margin-bottom: 0.3rem; }
     .chat-bubble {
       max-width: 85%;
       border-radius: 8px;
@@ -318,59 +340,39 @@ interface ChatMessage {
       border: 1px solid #30363d;
       color: #f0f6fc;
     }
-    .bubble-header { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.75rem; opacity: 0.8; }
+    .bubble-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 0.75rem;
+      opacity: 0.8;
+    }
     .bubble-sender { font-weight: 600; }
     .bubble-body { font-size: 0.95rem; line-height: 1.4; white-space: pre-wrap; }
 
     /* COMMAND BAR */
+    .command-toolbar {
+      --background: #161b22;
+      border-top: 1px solid #30363d;
+      padding: 0.3rem 0.5rem;
+    }
     .command-bar {
       display: flex;
       gap: 0.5rem;
       align-items: center;
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 8px;
-      padding: 0.5rem;
-      margin-top: auto;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
     }
     .command-input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: #f0f6fc;
-      padding: 0.5rem;
-      font-size: 0.95rem;
-      outline: none;
-    }
-    .btn-voice {
-      background: #21262d;
+      --background: #0d1117;
+      --color: #f0f6fc;
+      --placeholder-color: #8b949e;
+      --border-color: #30363d;
       border: 1px solid #30363d;
-      border-radius: 6px;
-      padding: 0.5rem 0.75rem;
-      font-size: 1.1rem;
-      cursor: pointer;
-      transition: background 0.2s;
+      border-radius: 20px;
+      padding: 0 0.8rem;
     }
-    .btn-voice.listening {
-      background: #f85149;
-      animation: pulse 1.2s infinite;
-    }
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.08); }
-      100% { transform: scale(1); }
-    }
-    .btn-send {
-      background: #238636;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      padding: 0.5rem 1.2rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn-send:hover { background: #2ea043; }
-    .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
   `]
 })
 export class AppComponent implements OnInit, OnDestroy {
@@ -398,7 +400,16 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(
     public api: GranBrainApiService,
     public voice: VoiceService
-  ) {}
+  ) {
+    addIcons({
+      micOutline,
+      micOffOutline,
+      sendOutline,
+      logOutOutline,
+      hardwareChipOutline,
+      sparklesOutline
+    });
+  }
 
   public ngOnInit(): void {
     this.isAuthenticated = this.api.isAuthenticated;
