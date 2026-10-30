@@ -444,9 +444,9 @@ export class AppComponent implements OnInit, OnDestroy {
   public prompt = '';
   public selectedProvider = 'codex';
   public providers: AiProviderStatus[] = [
-    { id: 'codex', displayName: 'Codex CLI', planName: 'ChatGPT Plus', model: 'gpt-4o-mini', executablePath: 'codex', installed: true, description: 'OpenAI Codex CLI' },
-    { id: 'claude', displayName: 'Claude Code', planName: 'Claude Pro', model: 'claude-3-5-haiku-20241022', executablePath: 'claude', installed: false, description: 'Anthropic Claude Code CLI' },
-    { id: 'gemini', displayName: 'Gemini CLI', planName: 'Google AI Pro', model: 'gemini-3.8-flash-low', executablePath: 'gemini', installed: true, description: 'Google Antigravity / Gemini CLI' }
+    { id: 'codex', displayName: 'Codex CLI', planName: 'ChatGPT Plus', model: 'gpt-6-luna-medium', executablePath: 'codex', installed: true, description: 'OpenAI Codex CLI' },
+    { id: 'claude', displayName: 'Claude Code', planName: 'Claude Pro', model: 'claude-haiku-5-5-medium', executablePath: 'claude', installed: false, description: 'Anthropic Claude Code CLI' },
+    { id: 'gemini', displayName: 'Gemini CLI', planName: 'Google AI Pro', model: 'gemini-3.8-flash-medium', executablePath: 'gemini', installed: true, description: 'Google Antigravity / Gemini CLI' }
   ];
 
   public messages: ChatMessage[] = [];

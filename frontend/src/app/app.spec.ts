@@ -179,18 +179,18 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       fixture.detectChanges();
       expect(component.title).toBe('GranBrain');
 
-      // Test initial model is lightweight default (gpt-4o-mini)
+      // Test initial model is lightweight default (gpt-6-luna-medium)
       expect(component.selectedProvider).toBe('codex');
-      expect(component.activeModel).toBe('gpt-4o-mini');
+      expect(component.activeModel).toBe('gpt-6-luna-medium');
 
       // Test provider switching and active model updates
       component.selectProvider('gemini');
       expect(component.selectedProvider).toBe('gemini');
-      expect(component.activeModel).toBe('gemini-3.8-flash-low');
+      expect(component.activeModel).toBe('gemini-3.8-flash-medium');
 
       component.selectProvider('claude');
       expect(component.selectedProvider).toBe('claude');
-      expect(component.activeModel).toBe('claude-3-5-haiku-20241022');
+      expect(component.activeModel).toBe('claude-haiku-5-5-medium');
 
       // Test voice triggering
       spyOn(component.voice, 'startListening').and.returnValue(true);

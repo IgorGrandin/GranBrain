@@ -144,9 +144,9 @@ public sealed class ApiSecurityAndAgentTests
             var claude = providers.First(p => p.Id == "claude");
             var gemini = providers.First(p => p.Id == "gemini");
 
-            Assert.Equal("gpt-4o-mini", codex.Model);
-            Assert.Equal("claude-3-5-haiku-20241022", claude.Model);
-            Assert.Equal("gemini-3.8-flash-low", gemini.Model);
+            Assert.Equal("gpt-6-luna-medium", codex.Model);
+            Assert.Equal("claude-haiku-5-5-medium", claude.Model);
+            Assert.Equal("gemini-3.8-flash-medium", gemini.Model);
 
             // 2. Request full dashboard + form -> returns all 5 Generative UI block types
             var chatRes = await client.PostAsJsonAsync(
