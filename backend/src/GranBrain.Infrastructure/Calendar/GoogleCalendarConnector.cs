@@ -241,6 +241,12 @@ public sealed class GoogleCalendarConnector : ICalendarConnector
 
         foreach (var item in items.EnumerateArray())
         {
+            if (item.TryGetProperty("status", out var statusProp) &&
+                string.Equals(statusProp.GetString(), "cancelled", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             var id = item.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
             var title = item.TryGetProperty("summary", out var sumProp) ? sumProp.GetString() : null;
             if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(title))

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GranBrain.Core.Interfaces;
 using GranBrain.Core.Models;
+using GranBrain.Core.Security;
 
 namespace GranBrain.Api.Endpoints;
 
@@ -22,10 +23,10 @@ public static class CalendarEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPost("/sync", async (HttpRequest httpRequest, ICalendarSyncService calendarSyncService, CancellationToken ct) =>
+        group.MapPost("/sync", async (string? date, HttpRequest httpRequest, ICalendarSyncService calendarSyncService, CancellationToken ct) =>
         {
             var request = await TryReadOptionalBodyAsync<CalendarSyncRequest>(httpRequest, ct);
-            var result = await calendarSyncService.SyncAsync(request?.Date, request?.TargetFolder, ct);
+            var result = await calendarSyncService.SyncAsync(request?.Date ?? date, request?.TargetFolder, ct);
             return Results.Ok(result);
         })
         .WithName("SyncCalendar")
@@ -68,6 +69,13 @@ public static class CalendarEndpoints
             return null;
         }
 
-        return JsonSerializer.Deserialize<T>(raw, JsonOptions);
+        try
+        {
+            return JsonSerializer.Deserialize<T>(raw, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            throw new VaultValidationException("invalid_request_body", "Corpo JSON inválido.");
+        }
     }
 }

@@ -360,6 +360,12 @@
 
     <!-- 8. AGENDA TIMELINE BLOCK -->
     <div *ngIf="block.type === 'agenda-timeline' && block.calendarAgenda as agenda" class="agenda-block" data-block-type="agenda-timeline">
+      <div class="card-head">
+        <div>
+          <h3>{{ block.title }}</h3>
+          <p *ngIf="block.subtitle" class="small muted">{{ block.subtitle }}</p>
+        </div>
+      </div>
       <div class="agenda-toolbar">
         <div class="chips" role="group" aria-label="Filtrar provedor de agenda">
           <button
@@ -414,6 +420,7 @@
                   <strong>{{ ev.title }}</strong>
                   <div class="ev-meta small muted">
                     <span class="mono">{{ ev.startTime }}–{{ ev.endTime }}</span>
+                    <span class="pill sm" [class.ok]="ev.status === 'now'" [class.accent]="ev.status === 'next'">{{ getEventStatusLabel(ev.status) }}</span>
                     <span class="pill sm" [class.info]="ev.provider === 'Google'" [class.accent]="ev.provider === 'Teams'" [class.warn]="ev.provider === 'Outlook'">{{ ev.provider }}</span>
                     <span *ngIf="ev.hasConflict" class="pill sm danger">Conflito</span>
                     <span *ngIf="ev.location">{{ ev.location }}</span>
@@ -429,6 +436,9 @@
             </div>
           </div>
         </ng-container>
+        <div *ngIf="shouldRenderNowlineAtEnd(getFilteredAgendaEvents(agenda.events))" class="nowline">
+          <span>Agora · {{ getCurrentTimeLabel() }}</span>
+        </div>
       </div>
 
       <div *ngIf="agendaViewMode === 'calendario'" class="card calwrap">

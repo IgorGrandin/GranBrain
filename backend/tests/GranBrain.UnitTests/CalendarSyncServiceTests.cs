@@ -152,6 +152,13 @@ public sealed class CalendarSyncServiceTests
                               "summary": "Deploy Madrugada UTC (Ainda 30/10 em SP)",
                               "start": { "dateTime": "2026-10-31T01:30:00Z" },
                               "end": { "dateTime": "2026-10-31T02:00:00Z" }
+                            },
+                            {
+                              "id": "g-cancelled",
+                              "status": "cancelled",
+                              "summary": "Reunião Cancelada Google",
+                              "start": { "dateTime": "2026-10-30T11:00:00Z" },
+                              "end": { "dateTime": "2026-10-30T11:30:00Z" }
                             }
                           ]
                         }
@@ -174,6 +181,21 @@ public sealed class CalendarSyncServiceTests
                               "end": { "dateTime": "2026-10-30T12:30:00Z", "timeZone": "UTC" },
                               "isOnlineMeeting": true,
                               "onlineMeeting": { "joinUrl": "https://teams.microsoft.com/l/meetup-join/1" }
+                            },
+                            {
+                              "id": "ms-teams-url",
+                              "subject": "Teams via URL apenas",
+                              "start": { "dateTime": "2026-10-30T12:30:00Z", "timeZone": "UTC" },
+                              "end": { "dateTime": "2026-10-30T13:00:00Z", "timeZone": "UTC" },
+                              "isOnlineMeeting": false,
+                              "onlineMeetingUrl": "https://teams.microsoft.com/l/meetup-join/2"
+                            },
+                            {
+                              "id": "ms-cancelled",
+                              "isCancelled": true,
+                              "subject": "Reunião Cancelada Graph",
+                              "start": { "dateTime": "2026-10-30T14:00:00Z", "timeZone": "UTC" },
+                              "end": { "dateTime": "2026-10-30T14:30:00Z", "timeZone": "UTC" }
                             },
                             {
                               "id": "ms-outlook",
@@ -224,7 +246,7 @@ public sealed class CalendarSyncServiceTests
             var syncService = new CalendarSyncService(connectors, options, guard, initializer, vaultService);
 
             var today = await syncService.GetTodayAsync("2026-10-30");
-            Assert.Equal(4, today.Events.Count);
+            Assert.Equal(5, today.Events.Count);
 
             // 2026-10-30T13:30:00Z -> 10:30 local in America/Sao_Paulo
             var g1 = Assert.Single(today.Events, e => e.Id == "g-1");
@@ -236,11 +258,14 @@ public sealed class CalendarSyncServiceTests
             var gLate = Assert.Single(today.Events, e => e.Id == "g-late");
             Assert.Equal("22:30", gLate.StartTime);
 
-            // Teams vs Outlook classification
+            // Teams vs Outlook classification + cancelled filtering
             var msTeams = Assert.Single(today.Events, e => e.Id == "ms-teams-flag");
             Assert.Equal(CalendarProvider.Teams, msTeams.Provider);
+            var msTeamsUrl = Assert.Single(today.Events, e => e.Id == "ms-teams-url");
+            Assert.Equal(CalendarProvider.Teams, msTeamsUrl.Provider);
             var msOutlook = Assert.Single(today.Events, e => e.Id == "ms-outlook");
             Assert.Equal(CalendarProvider.Outlook, msOutlook.Provider);
+            Assert.DoesNotContain(today.Events, e => e.Id == "g-cancelled" || e.Id == "ms-cancelled");
 
             // Second call reuses in-memory cached access tokens (still 2 token calls total)
             await syncService.GetTodayAsync("2026-10-30");
@@ -266,6 +291,24 @@ public sealed class CalendarSyncServiceTests
                 options, guard, initializer, vaultService);
             var authEx = await Assert.ThrowsAsync<VaultValidationException>(() => unauthService.GetTodayAsync("2026-10-30"));
             Assert.Equal("calendar_auth_failed", authEx.ErrorCode);
+
+            // Calendar GET 401 -> evicts cache and throws calendar_auth_failed
+            var get401Factory = new StubHttpClientFactory(new StubHttpMessageHandler(req =>
+            {
+                if (req.RequestUri!.AbsoluteUri.Contains("oauth2.googleapis.com"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("""{"access_token":"expired-access","expires_in":3600}""", Encoding.UTF8, "application/json")
+                    };
+                }
+                return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            }));
+            var get401Service = new CalendarSyncService(
+                new ICalendarConnector[] { new GoogleCalendarConnector(options, get401Factory) },
+                options, guard, initializer, vaultService);
+            var get401Ex = await Assert.ThrowsAsync<VaultValidationException>(() => get401Service.GetTodayAsync("2026-10-30"));
+            Assert.Equal("calendar_auth_failed", get401Ex.ErrorCode);
         }
         finally
         {

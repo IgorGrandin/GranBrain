@@ -376,8 +376,9 @@ export class AppComponent implements OnInit, OnDestroy {
     ];
   }
 
-  public onAgendaSyncRequested(_event: { blockId: string }): void {
-    this.api.syncCalendar(false).subscribe({
+  public onAgendaSyncRequested(event: { blockId: string }): void {
+    const agendaDate = this.getActiveAgendaDate(event.blockId);
+    this.api.syncCalendar(agendaDate).subscribe({
       next: (res) => {
         this.applyAgendaBlock(res.agenda);
         this.showToast(`Agenda sincronizada (${res.syncedCount} eventos)`, 'ok');
@@ -387,14 +388,8 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   public onCalendarNoteRequested(event: { event: CalendarEvent; blockId: string }): void {
-    this.api.createCalendarEventNote(event.event.id, {
-      title: event.event.title,
-      startTime: event.event.startTime,
-      endTime: event.event.endTime,
-      provider: event.event.provider,
-      attendees: event.event.attendees,
-      joinUrl: event.event.joinUrl || undefined
-    }).subscribe({
+    const agendaDate = this.getActiveAgendaDate(event.blockId);
+    this.api.createCalendarEventNote(event.event.id, undefined, agendaDate).subscribe({
       next: (res) => {
         event.event.notePath = res.notePath;
         this.showToast(
@@ -404,6 +399,13 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: () => this.showToast('Falha ao gerar nota da reunião', 'danger')
     });
+  }
+
+  private getActiveAgendaDate(blockId?: string): string | undefined {
+    const blk = this.currentBlocks.find((b) =>
+      b.type === 'agenda-timeline' && (!blockId || b.id === blockId)
+    );
+    return blk?.calendarAgenda?.date;
   }
 
   private loadAgendaToday(): void {

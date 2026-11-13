@@ -479,9 +479,10 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
 
       const syncReq = httpMock.expectOne('/api/calendar/sync');
       expect(syncReq.request.method).toBe('POST');
+      expect(syncReq.request.body).toEqual({ date: '2026-10-30' });
       syncReq.flush({
         date: '2026-10-30',
-        dailyNotePath: 'diario/2026-10-30.md',
+        dailyNotePath: 'daily/2026-10-30.md',
         syncedCount: 1,
         conflictsCount: 0,
         createdNotes: [],
@@ -495,16 +496,23 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
 
       const noteReq = httpMock.expectOne('/api/calendar/events/ev-teams-1/note');
       expect(noteReq.request.method).toBe('POST');
+      expect(noteReq.request.body).toEqual({ date: '2026-10-30' });
       noteReq.flush({
         eventId: 'ev-teams-1',
         title: 'Arquitetura GranBrain',
-        notePath: 'reunioes/2026-10-30 - Arquitetura GranBrain.md',
+        notePath: 'zettelkasten/Reunião - Arquitetura GranBrain.md',
         created: true
       });
       fixture.detectChanges();
 
       const toastEl = fixture.debugElement.query(By.css('.toasts .toast'));
       expect(toastEl).withContext('Should show toast feedback after creating meeting note').not.toBeNull();
+
+      // Explicit date parameter on getCalendarToday forwards query param matching CalendarEndpoints
+      component.api.getCalendarToday('2026-10-30').subscribe();
+      const dateQueryReq = httpMock.expectOne('/api/calendar/today?date=2026-10-30');
+      expect(dateQueryReq.request.method).toBe('GET');
+      dateQueryReq.flush(sampleAgenda);
     });
   });
 
@@ -684,7 +692,7 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
               location: 'Sala 2',
               attendees: ['pm@granbrain.dev'],
               joinUrl: null,
-              notePath: 'reunioes/2026-10-30 - 1-1 Produto.md',
+              notePath: 'zettelkasten/Reunião - 1-1 Produto.md',
               status: 'next',
               hasConflict: true,
               calendarTopPx: 150,
@@ -721,6 +729,7 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
 
       const blockEl = fixture.debugElement.query(By.css('.agenda-block'));
       expect(blockEl).withContext('Should render .agenda-block container').not.toBeNull();
+      expect(blockEl.query(By.css('.card-head h3'))?.nativeElement.textContent).toContain('Agenda do Dia');
 
       const conflictEl = blockEl.query(By.css('.conflict'));
       expect(conflictEl).withContext('Should render .conflict warning banner').not.toBeNull();
@@ -732,6 +741,7 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       expect(blockEl.query(By.css('.ev.past'))).not.toBeNull();
       const nowEv = blockEl.query(By.css('.ev.now'));
       expect(nowEv).not.toBeNull();
+      expect(nowEv.nativeElement.textContent).toContain('Em andamento');
       expect(blockEl.query(By.css('.ev.next'))).not.toBeNull();
       expect(blockEl.query(By.css('.nowline'))).not.toBeNull();
       expect(blockEl.queryAll(By.css('[data-event-join]')).length).toBe(3);
@@ -814,6 +824,21 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       fixture.detectChanges();
       blockEl.query(By.css('[data-event-note]')).nativeElement.click();
       expect(noteSpy).toHaveBeenCalled();
+
+      // When all events are past, .nowline must render after the last .ev (not before index 0)
+      const pastOnlyBlock = {
+        ...mockAgendaBlock,
+        calendarAgenda: {
+          ...mockAgendaBlock.calendarAgenda!,
+          events: [mockAgendaBlock.calendarAgenda!.events[0]]
+        }
+      };
+      component.blocks = [pastOnlyBlock as any];
+      fixture.detectChanges();
+      const pastChildren = Array.from(
+        fixture.debugElement.query(By.css('.timeline')).nativeElement.children
+      ) as HTMLElement[];
+      expect(pastChildren[pastChildren.length - 1].classList.contains('nowline')).toBeTrue();
     });
   });
 });

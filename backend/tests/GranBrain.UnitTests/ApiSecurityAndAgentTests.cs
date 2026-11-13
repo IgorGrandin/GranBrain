@@ -389,6 +389,12 @@ public sealed class ApiSecurityAndAgentTests
             Assert.Equal(HttpStatusCode.NotFound, missingNoteRes.StatusCode);
             Assert.Contains("calendar_event_not_found", await missingNoteRes.Content.ReadAsStringAsync());
 
+            var badJsonRes = await client.PostAsync(
+                "/api/calendar/sync",
+                new StringContent("{ invalid json", Encoding.UTF8, "application/json"));
+            Assert.Equal(HttpStatusCode.BadRequest, badJsonRes.StatusCode);
+            Assert.Contains("invalid_request_body", await badJsonRes.Content.ReadAsStringAsync());
+
             // 6. AgentOrchestratorService emits agenda-timeline block for agenda intent and syncs on sync prompt
             var agentAgendaRes = await client.PostAsJsonAsync("/api/agent/chat", new AgentChatRequest("Quais reuniões eu tenho na agenda hoje?", "codex"));
             Assert.Equal(HttpStatusCode.OK, agentAgendaRes.StatusCode);

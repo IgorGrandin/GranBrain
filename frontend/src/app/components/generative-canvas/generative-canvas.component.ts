@@ -227,7 +227,21 @@ export class GenerativeCanvasComponent implements OnInit {
     if (nowIndex >= 0) return index === nowIndex;
     const nextIndex = events.findIndex((e) => e.status === 'next');
     if (nextIndex >= 0) return index === nextIndex;
-    return index === 0;
+    return false;
+  }
+
+  public shouldRenderNowlineAtEnd(events: CalendarEvent[]): boolean {
+    if (!events || events.length === 0) return false;
+    return !events.some((e) => e.status === 'now' || e.status === 'next');
+  }
+
+  public getEventStatusLabel(status: string): string {
+    switch (status) {
+      case 'now': return 'Em andamento';
+      case 'past': return 'Passou';
+      case 'next': return 'Próximo';
+      default: return status;
+    }
   }
 
   public getCurrentTimeLabel(): string {

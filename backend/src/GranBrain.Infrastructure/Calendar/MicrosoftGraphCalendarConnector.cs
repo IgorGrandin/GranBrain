@@ -96,6 +96,12 @@ public sealed class MicrosoftGraphCalendarConnector : ICalendarConnector
 
         foreach (var item in items.EnumerateArray())
         {
+            if (item.TryGetProperty("isCancelled", out var cancelledProp) &&
+                cancelledProp.ValueKind == JsonValueKind.True)
+            {
+                continue;
+            }
+
             var id = item.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
             var title = item.TryGetProperty("subject", out var subProp) ? subProp.GetString() : null;
             if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(title))

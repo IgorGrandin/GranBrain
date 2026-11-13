@@ -180,31 +180,31 @@ export class GranBrainApiService {
     });
   }
 
-  public getCalendarToday(): Observable<CalendarToday> {
-    return this.http.get<CalendarToday>(`${this.baseUrl}/calendar/today`, {
+  public getCalendarToday(date?: string): Observable<CalendarToday> {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return this.http.get<CalendarToday>(`${this.baseUrl}/calendar/today${query}`, {
       headers: this.getAuthHeaders()
     });
   }
 
-  public syncCalendar(createMeetingNotes = false): Observable<CalendarSyncResult> {
+  public syncCalendar(date?: string, targetFolder?: string): Observable<CalendarSyncResult> {
+    const body: { date?: string; targetFolder?: string } = {};
+    if (date) body.date = date;
+    if (targetFolder) body.targetFolder = targetFolder;
     return this.http.post<CalendarSyncResult>(
       `${this.baseUrl}/calendar/sync`,
-      { createMeetingNotes },
+      body,
       { headers: this.getAuthHeaders() }
     );
   }
 
-  public createCalendarEventNote(eventId: string, body?: {
-    title?: string;
-    startTime?: string;
-    endTime?: string;
-    provider?: string;
-    attendees?: string[];
-    joinUrl?: string;
-  }): Observable<CalendarNoteResult> {
+  public createCalendarEventNote(eventId: string, targetFolder?: string, date?: string): Observable<CalendarNoteResult> {
+    const body: { targetFolder?: string; date?: string } = {};
+    if (targetFolder) body.targetFolder = targetFolder;
+    if (date) body.date = date;
     return this.http.post<CalendarNoteResult>(
       `${this.baseUrl}/calendar/events/${encodeURIComponent(eventId)}/note`,
-      body || {},
+      body,
       { headers: this.getAuthHeaders() }
     );
   }
