@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: fatia-2-api-endpoints-and-orchestrator
     content: "Fatia 2: Endpoints HTTP (/api/vault/ideas/fleeting, /brainstorm, /promote, /overview), tratamento de erros 400/404 e integração socrática no AgentOrchestratorService (blocos idea-capture e brainstorm-canvas) + testes de integração HTTP"
-    status: pending
+    status: completed
   - id: fatia-3-frontend-generative-ui-ideas
     content: "Fatia 3: Estilos canônicos (.idea, .board3, .hyp, .socratic, .bar-actions) em styles.scss, blocos idea-capture e brainstorm-canvas no GenerativeCanvasComponent e navegação 0002 no AppComponent + testes Karma/Jasmine"
     status: pending

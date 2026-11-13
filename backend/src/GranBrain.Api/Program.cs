@@ -85,6 +85,13 @@ app.UseExceptionHandler(errApp =>
             return;
         }
 
+        if (ex is VaultValidationException validation)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { code = validation.ErrorCode, message = validation.Message });
+            return;
+        }
+
         if (ex is VaultEntityNotFoundException notFound)
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;

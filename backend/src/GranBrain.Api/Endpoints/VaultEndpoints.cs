@@ -74,6 +74,30 @@ public static class VaultEndpoints
             return Results.Ok(list);
         });
 
+        group.MapPost("/ideas/fleeting", async (FleetingIdeaCaptureRequest request, IVaultService vaultService, CancellationToken ct) =>
+        {
+            var created = await vaultService.CaptureFleetingIdeaAsync(request, ct);
+            return Results.Ok(created);
+        });
+
+        group.MapPost("/ideas/brainstorm", async (BrainstormStartRequest request, IVaultService vaultService, CancellationToken ct) =>
+        {
+            var session = await vaultService.StartBrainstormSessionAsync(request, ct);
+            return Results.Ok(session);
+        });
+
+        group.MapPost("/ideas/promote", async (IdeaPromoteRequest request, IVaultService vaultService, CancellationToken ct) =>
+        {
+            var result = await vaultService.PromoteIdeaAsync(request, ct);
+            return Results.Ok(result);
+        });
+
+        group.MapGet("/ideas/overview", async (IVaultService vaultService, CancellationToken ct) =>
+        {
+            var overview = await vaultService.GetIdeasOverviewAsync(ct);
+            return Results.Ok(overview);
+        });
+
         return app;
     }
 }

@@ -169,10 +169,14 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
             _ => _options.Cli.CodexModel
         };
 
+        var socraticInstruction = IsIdeasIntent(prompt.ToLowerInvariant())
+            ? " Quando o pedido envolver ideias ou brainstorming, atue com o método socrático da skill /brainstorming e templates/Brainstorming.md (desafiando premissas, levantando hipóteses com confiança e riscos com severidade)."
+            : string.Empty;
+
         var systemWrappedPrompt =
             $"Você está operando o cofre Obsidian em '{_guard.VaultRoot}' sob o modelo leve '{model}'. " +
             $"Siga o protocolo de AGENTS.md e a diretriz de pesquisa com subagentes: " +
-            $"para investigações amplas ou varreduras de múltiplos arquivos, divida o escopo invocando subagentes focados e agregue os resultados. " +
+            $"para investigações amplas ou varreduras de múltiplos arquivos, divida o escopo invocando subagentes focados e agregue os resultados.{socraticInstruction} " +
             $"Pedido do usuário: {prompt}";
 
         return provider switch
@@ -207,8 +211,17 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
 
         var lower = prompt.ToLowerInvariant();
 
-        // Intent: Quick inbox capture ("anota:", "captura:", "ideia:")
-        var captureMatch = Regex.Match(prompt, @"^(?:anota|anotar|captura|capturar|inbox|ideia)\s*:\s*(?<text>.+)$", RegexOptions.IgnoreCase);
+        // Intent: Quick fleeting idea capture ("ideia:", "fleeting:")
+        var ideaMatch = Regex.Match(prompt, @"^(?:ideia|fleeting)\s*:\s*(?<text>.+)$", RegexOptions.IgnoreCase);
+        if (ideaMatch.Success)
+        {
+            var text = ideaMatch.Groups["text"].Value.Trim();
+            var captured = await _vaultService.CaptureFleetingIdeaAsync(new FleetingIdeaCaptureRequest(text, "fleeting"), ct);
+            touchedFiles.Add(captured.SourcePath);
+        }
+
+        // Intent: Quick inbox capture ("anota:", "captura:")
+        var captureMatch = Regex.Match(prompt, @"^(?:anota|anotar|captura|capturar|inbox)\s*:\s*(?<text>.+)$", RegexOptions.IgnoreCase);
         if (captureMatch.Success)
         {
             var text = captureMatch.Groups["text"].Value.Trim();
@@ -255,6 +268,25 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
         var wantsKanban = wantsAll || lower.Contains("kanban") || lower.Contains("tarefa") || lower.Contains("profissional") || lower.Contains("pessoal");
         var wantsForm = lower.Contains("formulário") || lower.Contains("formulario") || lower.Contains("cadastrar") || lower.Contains("criar nota") || lower.Contains("reunião") || lower.Contains("reuniao") || lower.Contains("form");
         var wantsNotes = wantsAll || lower.Contains("nota") || lower.Contains("zettelkasten") || lower.Contains("estudo") || lower.Contains("seguro") || lower.Contains("csharp") || lower.Contains("índice");
+        var wantsIdeas = IsIdeasIntent(lower);
+
+        if (wantsIdeas)
+        {
+            var ideasOverview = await _vaultService.GetIdeasOverviewAsync(ct);
+            blocks.Add(new GenerativeUiBlock(
+                Id: "block-idea-capture",
+                Type: GenerativeUiBlockTypes.IdeaCapture,
+                Title: "Captura Rápida de Ideias",
+                Subtitle: "Gravada com horário em zettelkasten/Fleeting.md",
+                IdeasOverview: ideasOverview));
+
+            blocks.Add(new GenerativeUiBlock(
+                Id: "block-brainstorm-canvas",
+                Type: GenerativeUiBlockTypes.BrainstormCanvas,
+                Title: "Esteira de Ideação & Brainstorming Socrático",
+                Subtitle: "Fleeting -> Brainstorm -> Permanente / Projetos",
+                IdeasOverview: ideasOverview));
+        }
 
         if (wantsMetrics)
         {
@@ -357,6 +389,16 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
 
         return blocks;
     }
+
+    private static bool IsIdeasIntent(string lower) =>
+        lower.Contains("ideia") ||
+        lower.Contains("fleeting") ||
+        lower.Contains("brainstorm") ||
+        lower.Contains("socrático") ||
+        lower.Contains("socratico") ||
+        lower.Contains("hipótese") ||
+        lower.Contains("hipotese") ||
+        lower.Contains("promover");
 
     private static string BuildContextualReply(
         string prompt,

@@ -17,6 +17,7 @@ public sealed class ApiSecurityAndAgentTests
     {
         public string StdOutToReturn { get; set; } = string.Empty;
         public bool Installed { get; set; } = true;
+        public IReadOnlyList<string>? LastArguments { get; private set; }
 
         public bool IsExecutableAvailable(string executableOrCommand) => Installed;
 
@@ -27,6 +28,7 @@ public sealed class ApiSecurityAndAgentTests
             int timeoutSeconds,
             CancellationToken ct = default)
         {
+            LastArguments = arguments;
             if (!Installed)
             {
                 return Task.FromResult(new CliProcessResult(false, -1, string.Empty, "Binary not installed"));
@@ -209,6 +211,109 @@ public sealed class ApiSecurityAndAgentTests
             var missingHabitRes = await client.PostAsJsonAsync("/api/vault/habits/toggle", new HabitToggleRequest("Habito Que Nao Existe"));
             Assert.Equal(HttpStatusCode.NotFound, missingHabitRes.StatusCode);
             Assert.Contains("habit_not_found", await missingHabitRes.Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            if (Directory.Exists(tempVault))
+            {
+                Directory.Delete(tempVault, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task IdeasEndpoints_ExecuteFullPipeline_AndReturnExpectedErrorCodes()
+    {
+        var tempVault = Path.Combine(Path.GetTempPath(), "GranBrainApiIdeasTest_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var fakeCli = new FakeCliProcessRunner
+            {
+                Installed = true,
+                StdOutToReturn = "Pergunta socrática gerada pela CLI"
+            };
+
+            using var factory = CreateTestFactory(tempVault, fakeCli);
+            using var client = factory.CreateClient();
+
+            // 1. Unauthenticated access returns 401
+            var unauthOverview = await client.GetAsync("/api/vault/ideas/overview");
+            Assert.Equal(HttpStatusCode.Unauthorized, unauthOverview.StatusCode);
+
+            var loginRes = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("igor", "GranBrain@2026"));
+            var token = (await loginRes.Content.ReadFromJsonAsync<LoginResponse>())!.Token;
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // 2. Empty text -> 400 idea_text_required
+            var emptyRes = await client.PostAsJsonAsync("/api/vault/ideas/fleeting", new FleetingIdeaCaptureRequest("   "));
+            Assert.Equal(HttpStatusCode.BadRequest, emptyRes.StatusCode);
+            Assert.Contains("idea_text_required", await emptyRes.Content.ReadAsStringAsync());
+
+            // 3. Path traversal in target -> 400 vault_path_violation
+            var traversalRes = await client.PostAsJsonAsync("/api/vault/ideas/fleeting", new FleetingIdeaCaptureRequest("Ideia válida", "../../evil"));
+            Assert.Equal(HttpStatusCode.BadRequest, traversalRes.StatusCode);
+            Assert.Contains("vault_path_violation", await traversalRes.Content.ReadAsStringAsync());
+
+            // 4. Valid capture -> 200 IdeaItemDto
+            var captureRes = await client.PostAsJsonAsync("/api/vault/ideas/fleeting", new FleetingIdeaCaptureRequest("Motor de brainstorming local"));
+            Assert.Equal(HttpStatusCode.OK, captureRes.StatusCode);
+            var captured = await captureRes.Content.ReadFromJsonAsync<IdeaItemDto>();
+            Assert.NotNull(captured);
+            Assert.Equal("fleeting", captured.Status);
+
+            // 5. Brainstorm missing idea -> 404 idea_not_found
+            var missingBrainstorm = await client.PostAsJsonAsync("/api/vault/ideas/brainstorm", new BrainstormStartRequest(IdeaId: "nao-existe"));
+            Assert.Equal(HttpStatusCode.NotFound, missingBrainstorm.StatusCode);
+            Assert.Contains("idea_not_found", await missingBrainstorm.Content.ReadAsStringAsync());
+
+            // 6. Start brainstorm -> 200 BrainstormSessionDto
+            var brainstormRes = await client.PostAsJsonAsync("/api/vault/ideas/brainstorm", new BrainstormStartRequest(IdeaId: captured.Id));
+            Assert.Equal(HttpStatusCode.OK, brainstormRes.StatusCode);
+            var session = await brainstormRes.Content.ReadFromJsonAsync<BrainstormSessionDto>();
+            Assert.NotNull(session);
+            Assert.False(string.IsNullOrWhiteSpace(session.Problem));
+            Assert.NotEmpty(session.Hypotheses);
+            Assert.NotEmpty(session.Risks);
+            Assert.False(string.IsNullOrWhiteSpace(session.SocraticQuestion));
+
+            // 7. Promote invalid target -> 400 invalid_promotion_target
+            var invalidPromote = await client.PostAsJsonAsync("/api/vault/ideas/promote", new IdeaPromoteRequest(captured.Id, "invalido"));
+            Assert.Equal(HttpStatusCode.BadRequest, invalidPromote.StatusCode);
+            Assert.Contains("invalid_promotion_target", await invalidPromote.Content.ReadAsStringAsync());
+
+            // 8. Promote missing idea -> 404 idea_not_found
+            var missingPromote = await client.PostAsJsonAsync("/api/vault/ideas/promote", new IdeaPromoteRequest("nao-existe", "permanente"));
+            Assert.Equal(HttpStatusCode.NotFound, missingPromote.StatusCode);
+            Assert.Contains("idea_not_found", await missingPromote.Content.ReadAsStringAsync());
+
+            // 9. Promote to permanente -> 200 IdeaPromotionResultDto
+            var promoteRes = await client.PostAsJsonAsync("/api/vault/ideas/promote", new IdeaPromoteRequest(captured.Id, "permanente"));
+            Assert.Equal(HttpStatusCode.OK, promoteRes.StatusCode);
+            var promoted = await promoteRes.Content.ReadFromJsonAsync<IdeaPromotionResultDto>();
+            Assert.NotNull(promoted);
+            Assert.Equal("promovida", promoted.Status);
+
+            // 10. Overview reflects counts
+            var overviewRes = await client.GetAsync("/api/vault/ideas/overview");
+            Assert.Equal(HttpStatusCode.OK, overviewRes.StatusCode);
+            var overview = await overviewRes.Content.ReadFromJsonAsync<IdeasOverviewDto>();
+            Assert.NotNull(overview);
+            Assert.Equal(1, overview.PromotedCount);
+
+            // 11. Agent chat "ideia: ..." captures to Fleeting.md and returns idea-capture + brainstorm-canvas
+            var agentIdeaRes = await client.PostAsJsonAsync("/api/agent/chat", new AgentChatRequest("ideia: Capturar pensamento via chat", "codex"));
+            Assert.Equal(HttpStatusCode.OK, agentIdeaRes.StatusCode);
+            var agentEnvelope = await agentIdeaRes.Content.ReadFromJsonAsync<AgentResponseEnvelope>();
+            Assert.NotNull(agentEnvelope);
+            Assert.Contains(agentEnvelope.TouchedFiles, f => f.Contains("Fleeting.md", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(agentEnvelope.UiBlocks, b => b.Type == GenerativeUiBlockTypes.IdeaCapture && b.IdeasOverview is not null);
+            Assert.Contains(agentEnvelope.UiBlocks, b => b.Type == GenerativeUiBlockTypes.BrainstormCanvas && b.IdeasOverview is not null);
+
+            // 12. Agent chat with CLI + brainstorm prompt passes socratic instructions
+            var cliBrainstormRes = await client.PostAsJsonAsync("/api/agent/chat", new AgentChatRequest("cli: brainstorm sobre captura de ideias", "claude"));
+            Assert.Equal(HttpStatusCode.OK, cliBrainstormRes.StatusCode);
+            Assert.NotNull(fakeCli.LastArguments);
+            Assert.Contains(fakeCli.LastArguments, a => a.Contains("/brainstorming", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
