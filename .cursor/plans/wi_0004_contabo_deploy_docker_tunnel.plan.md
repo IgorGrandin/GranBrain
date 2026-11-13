@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: fatia-2-docker-cloudflare-nginx-and-rclone-bisync
     content: "Criar backend/Dockerfile, frontend/Dockerfile, docker-compose.yml, .env.example, configs Nginx/Cloudflare Tunnel, script rclone-bisync-loop.sh e setup-vps.sh + testes de infraestrutura"
-    status: pending
+    status: completed
   - id: fatia-3-frontend-runtime-config-and-rail-health-ui
     content: "Implementar runtime-config.js, normalização de apiBaseUrl em GranBrainApiService, badges [data-health-vault]/[data-health-tunnel]/[data-health-sync] no .rail-foot e toasts de queda/reconexão em AppComponent + testes Karma"
     status: pending

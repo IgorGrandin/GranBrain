@@ -1,0 +1,14 @@
+# Cloudflare Tunnel routing template for GranBrain on Contabo VPS
+# Replace <TUNNEL_UUID> and <dominio> with your actual Cloudflare Tunnel ID and domain.
+# Note: When running via Cloudflare Zero Trust dashboard (token mode), configure the exact
+# same public hostnames in Zero Trust -> Networks -> Tunnels.
+
+tunnel: <TUNNEL_UUID>
+credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  - hostname: app.<dominio>
+    service: http://frontend:8080
+  - hostname: api.<dominio>
+    service: http://api:8080
+  - service: http_status:404

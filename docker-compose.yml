@@ -1,0 +1,74 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 512m
+    expose:
+      - "8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      GranBrain__VaultPath: /data/vault
+      GranBrain__SyncStatusFilePath: /var/run/granbrain/sync-status.json
+      GranBrain__TunnelMode: cloudflare-tunnel
+      GranBrain__AllowedOrigins__0: ${GRANBRAIN_ALLOWED_ORIGINS}
+      GranBrain__Auth__Username: ${GRANBRAIN_USERNAME:-igor}
+      GranBrain__Auth__PasswordHash: ${GRANBRAIN_PASSWORD_HASH}
+      GranBrain__Auth__DefaultPassword: ""
+      GranBrain__Auth__JwtSecret: ${GRANBRAIN_JWT_SECRET}
+    volumes:
+      - vault-data:/data/vault
+      - sync-state:/var/run/granbrain
+    networks:
+      - granbrain-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    mem_limit: 192m
+    expose:
+      - "8080"
+    environment:
+      GRANBRAIN_API_BASE_URL: ${GRANBRAIN_API_BASE_URL}
+    depends_on:
+      - api
+    networks:
+      - granbrain-net
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    mem_limit: 128m
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - granbrain-net
+
+  vault-sync:
+    image: rclone/rclone:latest
+    restart: unless-stopped
+    mem_limit: 256m
+    entrypoint: ["/bin/sh", "/usr/local/bin/rclone-bisync-loop.sh"]
+    environment:
+      RCLONE_REMOTE: ${RCLONE_REMOTE:-gdrive:GranBrainVault}
+      RCLONE_SYNC_INTERVAL_SECONDS: ${RCLONE_SYNC_INTERVAL_SECONDS:-120}
+    volumes:
+      - vault-data:/data/vault
+      - sync-state:/var/run/granbrain
+      - ./deploy/rclone/rclone.conf:/config/rclone/rclone.conf:ro
+      - ./deploy/rclone/rclone-bisync-loop.sh:/usr/local/bin/rclone-bisync-loop.sh:ro
+    networks:
+      - granbrain-net
+
+volumes:
+  vault-data:
+  sync-state:
+
+networks:
+  granbrain-net:
+    driver: bridge

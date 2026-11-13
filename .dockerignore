@@ -1,0 +1,12 @@
+.git
+.cursor
+backlog
+docs
+**/*.user
+**/bin
+**/obj
+**/node_modules
+frontend/dist
+frontend/.angular
+.env
+deploy/rclone/rclone.conf
