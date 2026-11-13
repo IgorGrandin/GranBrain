@@ -64,6 +64,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private toastIdCounter = 0;
   private subs = new Subscription();
+  private pendingIdeaVoiceBlockId: string | null = null;
 
   constructor(
     public api: GranBrainApiService,
@@ -93,6 +94,12 @@ export class AppComponent implements OnInit, OnDestroy {
     this.subs.add(
       this.voice.onTranscript$.subscribe((transcript) => {
         if (transcript) {
+          if (this.pendingIdeaVoiceBlockId) {
+            const blockId = this.pendingIdeaVoiceBlockId;
+            this.pendingIdeaVoiceBlockId = null;
+            this.onIdeaCaptured({ text: transcript, target: 'fleeting', blockId });
+            return;
+          }
           this.prompt = transcript;
           this.sendCommand(true);
         }
@@ -306,7 +313,8 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
-  public onIdeaVoiceTriggered(_event: { blockId: string }): void {
+  public onIdeaVoiceTriggered(event: { blockId: string }): void {
+    this.pendingIdeaVoiceBlockId = this.isListening ? null : event.blockId;
     this.toggleVoice();
   }
 

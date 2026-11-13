@@ -406,6 +406,22 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       fixture.detectChanges();
       const toastEl = fixture.debugElement.query(By.css('.toasts .toast'));
       expect(toastEl).withContext('Should show toast feedback').not.toBeNull();
+
+      // Voice dictation from idea-capture routes directly to /api/vault/ideas/fleeting
+      spyOn(component.voice, 'startListening').and.returnValue(true);
+      component.onIdeaVoiceTriggered({ blockId: 'blk-idea-cap' });
+      (component.voice as any).transcriptSubject.next('Ideia ditada por voz');
+      const voiceCapReq = httpMock.expectOne('/api/vault/ideas/fleeting');
+      expect(voiceCapReq.request.body.text).toBe('Ideia ditada por voz');
+      voiceCapReq.flush({ id: 'idea-3', text: 'Ideia ditada por voz', time: '09:10', status: 'fleeting', sourcePath: 'zettelkasten/Fleeting.md' });
+      httpMock.expectOne('/api/vault/ideas/overview').flush({
+        ideas: [],
+        fleetingCount: 2,
+        brainstormCount: 0,
+        promotedCount: 1,
+        discardedCount: 0,
+        activeSession: null
+      });
     });
   });
 
