@@ -6,7 +6,8 @@ export type GenerativeUiBlockType =
   | 'markdown-note-list'
   | 'idea-capture'
   | 'brainstorm-canvas'
-  | 'agenda-timeline';
+  | 'agenda-timeline'
+  | 'routines-panel';
 
 export interface KpiMetricItem {
   label: string;
@@ -78,6 +79,7 @@ export interface GenerativeUiBlock {
   notes?: VaultNoteSummary[];
   ideasOverview?: IdeasOverview;
   calendarAgenda?: CalendarToday;
+  routinesOverview?: RoutinesOverview;
 }
 
 export type CalendarProvider = 'Google' | 'Teams' | 'Outlook';
@@ -260,4 +262,65 @@ export interface SystemHealthStatus {
 
 export interface GranBrainRuntimeConfig {
   apiBaseUrl?: string;
+}
+
+export interface RoutineStatusCard {
+  jobId: string;
+  title: string;
+  scheduleLabel: string;
+  status: string;
+  statusTone: string;
+  lastRunSummary: string;
+}
+
+export interface InboxQueueItem {
+  fileName: string;
+  relativePath: string;
+  suggestedDestination: string;
+  tag: string;
+  extension: string;
+}
+
+export interface RoutineExecutionLog {
+  id: string;
+  jobId: string;
+  executedAtIso: string;
+  displayTime: string;
+  status: string;
+  message: string;
+  itemsProcessed: number;
+  itemsFailed: number;
+  touchedFiles: string[];
+}
+
+export interface RoutinesOverview {
+  inboxPendingCount: number;
+  routines: RoutineStatusCard[];
+  inboxItems: InboxQueueItem[];
+  logs: RoutineExecutionLog[];
+}
+
+export interface InboxTriageFileResult {
+  sourceFile: string;
+  destinationNotePath?: string | null;
+  archivePath?: string | null;
+  category: string;
+  succeeded: boolean;
+  errorMessage?: string | null;
+}
+
+export interface RoutineRunResult {
+  jobId: string;
+  succeeded: boolean;
+  processedCount: number;
+  failedCount: number;
+  summary: string;
+  touchedFiles: string[];
+  fileResults: InboxTriageFileResult[];
+  overview: RoutinesOverview;
+}
+
+export interface RoutineRunRequest {
+  date?: string;
+  inboxFolder?: string;
 }

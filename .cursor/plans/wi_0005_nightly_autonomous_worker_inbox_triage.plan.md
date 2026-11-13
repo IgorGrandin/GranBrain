@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: fatia-3-frontend-rotinas-panel-and-spec-frontend
     content: "Reconciliar classes CSS Balde A do mockup em styles.scss e implementar modelos, GranBrainApiService, GenerativeCanvasComponent (routines-panel) e navegação rail 0005 em AppComponent"
-    status: pending
+    status: completed
   - id: gate
     content: "Executar dotnet build, dotnet test, npm test -- --watch=false e npm run build contra o último commit em árvore limpa"
     status: pending

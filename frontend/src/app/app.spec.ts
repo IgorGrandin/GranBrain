@@ -1000,4 +1000,257 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       expect(getComputedStyle(vaultBadge).backgroundColor).not.toBe(getComputedStyle(tunnelBadge).color);
     });
   });
+
+  describe('Fatia 3 (WI 0005) — Rotinas & Inbox Panel', () => {
+    let fixture: ComponentFixture<AppComponent>;
+    let component: AppComponent;
+    let httpMock: HttpTestingController;
+
+    beforeEach(async () => {
+      await TestBed.configureTestingModule({
+        imports: [AppComponent],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideIonicAngular(),
+          GranBrainApiService,
+          VoiceService
+        ]
+      }).compileComponents();
+
+      httpMock = TestBed.inject(HttpTestingController);
+      fixture = TestBed.createComponent(AppComponent);
+      component = fixture.componentInstance;
+    });
+
+    afterEach(() => {
+      delete (window as any).__GRANBRAIN_CONFIG__;
+      httpMock.verify();
+    });
+
+    it('AppComponent navigates to Routines 0005 view, renders .routine/.logrow/.row and executes inbox triage with in-flight disable', () => {
+      fixture.detectChanges();
+      component.isAuthenticated = true;
+      fixture.detectChanges();
+
+      const navItems = fixture.debugElement.queryAll(By.css('.rail .nav-item'));
+      const rotinasNav = navItems.find((item) => item.nativeElement.textContent.includes('0005'));
+      expect(rotinasNav).toBeDefined();
+
+      rotinasNav!.nativeElement.click();
+      fixture.detectChanges();
+
+      expect(component.currentView).toBe('rotinas');
+      expect((rotinasNav!.nativeElement as HTMLElement).classList.contains('on')).toBeTrue();
+      const crumbStrong = fixture.debugElement.query(By.css('.topbar .crumb strong')).nativeElement as HTMLElement;
+      expect(crumbStrong.textContent?.trim()).toBe('Rotinas & Inbox');
+
+      const overviewReq = httpMock.expectOne('/api/routines/overview');
+      expect(overviewReq.request.method).toBe('GET');
+      overviewReq.flush({
+        inboxPendingCount: 2,
+        routines: [
+          {
+            jobId: 'MorningPrepJob',
+            title: 'Morning Prep',
+            scheduleLabel: 'Diário às 06:00',
+            status: 'Em dia',
+            statusTone: 'ok',
+            lastRunSummary: 'Última execução: 06:00'
+          },
+          {
+            jobId: 'InboxTriageJob',
+            title: 'Inbox Triage',
+            scheduleLabel: 'A cada 2h e sob demanda',
+            status: '2 no inbox',
+            statusTone: 'warn',
+            lastRunSummary: '2 arquivo(s) aguardando triagem'
+          },
+          {
+            jobId: 'NightlyClosureJob',
+            title: 'Nightly Closure',
+            scheduleLabel: 'Diário às 23:30',
+            status: 'Agendado',
+            statusTone: 'accent',
+            lastRunSummary: 'Pronto para fechamento noturno'
+          }
+        ],
+        inboxItems: [
+          {
+            fileName: 'nota-reuniao.md',
+            relativePath: 'inbox/nota-reuniao.md',
+            suggestedDestination: 'zettelkasten/Reunião - nota-reuniao.md',
+            tag: 'Reunião',
+            extension: '.md'
+          },
+          {
+            fileName: 'ideia-rapida.txt',
+            relativePath: 'inbox/ideia-rapida.txt',
+            suggestedDestination: 'zettelkasten/ideia-rapida.md',
+            tag: 'Ideia',
+            extension: '.txt'
+          }
+        ],
+        logs: [
+          {
+            id: 'log-1',
+            jobId: 'MorningPrepJob',
+            executedAtIso: '2026-11-13T09:00:00Z',
+            displayTime: '06:00',
+            status: 'ok',
+            message: 'Nota diária preparada com hábitos e agenda.',
+            itemsProcessed: 1,
+            itemsFailed: 0,
+            touchedFiles: ['daily/2026-11-13.md']
+          }
+        ]
+      });
+      fixture.detectChanges();
+
+      const panel = fixture.debugElement.query(By.css('[data-block-type="routines-panel"]'));
+      expect(panel).not.toBeNull();
+
+      const routineCards = panel.queryAll(By.css('.card.routine'));
+      expect(routineCards.length).toBe(3);
+      const triageBadge = routineCards[1].query(By.css('.pill.warn')).nativeElement as HTMLElement;
+      expect(triageBadge.textContent?.trim()).toBe('2 no inbox');
+
+      const inboxRows = panel.queryAll(By.css('.row'));
+      expect(inboxRows.length).toBe(2);
+
+      const initialLogRows = panel.queryAll(By.css('.logrow'));
+      expect(initialLogRows.length).toBe(1);
+
+      expect(getComputedStyle(routineCards[0].nativeElement).display).toBe('grid');
+      expect(getComputedStyle(initialLogRows[0].nativeElement).display).toBe('grid');
+      expect(getComputedStyle(inboxRows[0].nativeElement).display).toBe('flex');
+      expect(getComputedStyle(inboxRows[0].nativeElement).alignItems).toBe('center');
+
+      const triageBtn = panel.query(By.css('[data-routine-triage]')).nativeElement as HTMLButtonElement;
+      expect(triageBtn.disabled).toBeFalse();
+      expect(triageBtn.textContent?.trim()).toBe('Triar inbox agora');
+
+      triageBtn.click();
+      fixture.detectChanges();
+
+      expect(triageBtn.disabled).toBeTrue();
+      expect(triageBtn.textContent?.trim()).toBe('Triando…');
+
+      const triageReq = httpMock.expectOne('/api/routines/triage');
+      expect(triageReq.request.method).toBe('POST');
+      triageReq.flush({
+        jobId: 'InboxTriageJob',
+        succeeded: true,
+        processedCount: 2,
+        failedCount: 0,
+        summary: '2 arquivo(s) triado(s) e arquivado(s).',
+        touchedFiles: [
+          'zettelkasten/Reunião - nota-reuniao.md',
+          'inbox/_archive/nota-reuniao.md',
+          'zettelkasten/ideia-rapida.md',
+          'inbox/_archive/ideia-rapida.txt'
+        ],
+        fileResults: [],
+        overview: {
+          inboxPendingCount: 0,
+          routines: [
+            {
+              jobId: 'MorningPrepJob',
+              title: 'Morning Prep',
+              scheduleLabel: 'Diário às 06:00',
+              status: 'Em dia',
+              statusTone: 'ok',
+              lastRunSummary: 'Última execução: 06:00'
+            },
+            {
+              jobId: 'InboxTriageJob',
+              title: 'Inbox Triage',
+              scheduleLabel: 'A cada 2h e sob demanda',
+              status: 'Em dia',
+              statusTone: 'ok',
+              lastRunSummary: '2 arquivo(s) triado(s)'
+            },
+            {
+              jobId: 'NightlyClosureJob',
+              title: 'Nightly Closure',
+              scheduleLabel: 'Diário às 23:30',
+              status: 'Agendado',
+              statusTone: 'accent',
+              lastRunSummary: 'Pronto para fechamento noturno'
+            }
+          ],
+          inboxItems: [],
+          logs: [
+            {
+              id: 'log-2',
+              jobId: 'InboxTriageJob',
+              executedAtIso: '2026-11-13T18:10:00Z',
+              displayTime: '15:10',
+              status: 'ok',
+              message: '2 arquivo(s) triado(s) e arquivado(s).',
+              itemsProcessed: 2,
+              itemsFailed: 0,
+              touchedFiles: ['zettelkasten/Reunião - nota-reuniao.md']
+            },
+            {
+              id: 'log-1',
+              jobId: 'MorningPrepJob',
+              executedAtIso: '2026-11-13T09:00:00Z',
+              displayTime: '06:00',
+              status: 'ok',
+              message: 'Nota diária preparada com hábitos e agenda.',
+              itemsProcessed: 1,
+              itemsFailed: 0,
+              touchedFiles: ['daily/2026-11-13.md']
+            }
+          ]
+        }
+      });
+      fixture.detectChanges();
+
+      expect(triageBtn.disabled).toBeFalse();
+      expect(triageBtn.textContent?.trim()).toBe('Triar inbox agora');
+
+      const updatedCards = panel.queryAll(By.css('.card.routine'));
+      expect(updatedCards[1].query(By.css('.pill.ok')).nativeElement.textContent?.trim()).toBe('Em dia');
+      expect(panel.queryAll(By.css('.row')).length).toBe(0);
+
+      const emptyState = panel.query(By.css('.empty'));
+      expect(emptyState).not.toBeNull();
+      expect(emptyState.nativeElement.textContent?.trim()).toBe('Inbox vazio. Tudo foi triado.');
+      expect(getComputedStyle(emptyState.nativeElement).borderTopStyle).toBe('dashed');
+      expect(getComputedStyle(emptyState.nativeElement).textAlign).toBe('center');
+
+      expect(panel.queryAll(By.css('.logrow')).length).toBe(2);
+      const okToast = fixture.debugElement.query(By.css('.toasts .toast.ok'));
+      expect(okToast).not.toBeNull();
+      expect(okToast.nativeElement.textContent).toContain('2 arquivo(s) triado(s) e arquivado(s).');
+
+      // Run individual routine job button triggers POST /api/routines/MorningPrepJob/run
+      const runMorningBtn = panel.query(By.css('[data-routine-run="MorningPrepJob"]')).nativeElement as HTMLButtonElement;
+      runMorningBtn.click();
+      fixture.detectChanges();
+      expect(runMorningBtn.disabled).toBeTrue();
+
+      const runMorningReq = httpMock.expectOne('/api/routines/MorningPrepJob/run');
+      expect(runMorningReq.request.method).toBe('POST');
+      runMorningReq.flush({
+        jobId: 'MorningPrepJob',
+        succeeded: true,
+        processedCount: 1,
+        failedCount: 0,
+        summary: 'Morning Prep concluído.',
+        touchedFiles: ['daily/2026-11-13.md'],
+        fileResults: [],
+        overview: {
+          inboxPendingCount: 0,
+          routines: [],
+          inboxItems: [],
+          logs: []
+        }
+      });
+      fixture.detectChanges();
+      expect(component.routineRunningJobId).toBeNull();
+    });
+  });
 });

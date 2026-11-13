@@ -11,6 +11,7 @@ import {
   GenerativeUiBlock,
   HabitItem,
   IdeasOverview,
+  RoutinesOverview,
   SystemHealthStatus,
   VaultNoteSummary
 } from './models/granbrain.models';
@@ -51,6 +52,8 @@ export class AppComponent implements OnInit, OnDestroy {
   public loading = false;
   public isDarkMode = false;
   public currentView = 'dashboard';
+  public routineTriagePending = false;
+  public routineRunningJobId: string | null = null;
 
   public prompt = '';
   public selectedProvider = 'codex';
@@ -502,6 +505,82 @@ export class AppComponent implements OnInit, OnDestroy {
         calendarAgenda: agenda
       }
     ];
+  }
+
+  public openRoutinesView(): void {
+    this.currentView = 'rotinas';
+    this.loadRoutinesOverview();
+  }
+
+  public onRoutineTriageRequested(event: { blockId: string }): void {
+    if (this.routineTriagePending) {
+      return;
+    }
+
+    this.routineTriagePending = true;
+    this.api.triageInboxNow().subscribe({
+      next: (res) => {
+        this.routineTriagePending = false;
+        this.updateRoutineBlocks(event.blockId, res.overview);
+        this.showToast(res.summary || 'Triagem do inbox concluída', res.succeeded ? 'ok' : 'warn');
+      },
+      error: () => {
+        this.routineTriagePending = false;
+        this.showToast('Falha ao executar triagem do inbox', 'danger');
+      }
+    });
+  }
+
+  public onRoutineJobRunRequested(event: { jobId: string; blockId: string }): void {
+    if (this.routineTriagePending || this.routineRunningJobId) {
+      return;
+    }
+
+    this.routineRunningJobId = event.jobId;
+    this.api.runRoutineJob(event.jobId).subscribe({
+      next: (res) => {
+        this.routineRunningJobId = null;
+        this.updateRoutineBlocks(event.blockId, res.overview);
+        this.showToast(res.summary || 'Rotina executada com sucesso', res.succeeded ? 'ok' : 'warn');
+      },
+      error: () => {
+        this.routineRunningJobId = null;
+        this.showToast('Falha ao executar rotina', 'danger');
+      }
+    });
+  }
+
+  private loadRoutinesOverview(): void {
+    this.api.getRoutinesOverview().subscribe({
+      next: (overview) => this.applyRoutinesBlock(overview),
+      error: () => this.showToast('Erro ao carregar rotinas e inbox', 'danger')
+    });
+  }
+
+  private applyRoutinesBlock(overview: RoutinesOverview): void {
+    this.currentBlocks = [
+      {
+        id: 'routines-panel-main',
+        type: 'routines-panel',
+        title: 'Rotinas e inbox',
+        subtitle: `${overview.inboxPendingCount} item(ns) no inbox`,
+        routinesOverview: overview
+      }
+    ];
+  }
+
+  private updateRoutineBlocks(blockId: string, overview: RoutinesOverview): void {
+    const hasTargetBlock = this.currentBlocks.some((b) => b.type === 'routines-panel' && b.id === blockId);
+    if (!hasTargetBlock) {
+      this.applyRoutinesBlock(overview);
+      return;
+    }
+
+    this.currentBlocks = this.currentBlocks.map((b) =>
+      b.type === 'routines-panel' && b.id === blockId
+        ? { ...b, subtitle: `${overview.inboxPendingCount} item(ns) no inbox`, routinesOverview: overview }
+        : b
+    );
   }
 
   private loadProviders(): void {

@@ -20,6 +20,9 @@ import {
   KanbanBoard,
   LoginRequest,
   LoginResponse,
+  RoutineRunRequest,
+  RoutineRunResult,
+  RoutinesOverview,
   SystemHealthStatus,
   VaultNoteSummary,
   VaultOverview
@@ -233,6 +236,26 @@ export class GranBrainApiService {
     return this.http.post<CalendarNoteResult>(
       `${this.baseUrl}/calendar/events/${encodeURIComponent(eventId)}/note`,
       body,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  public getRoutinesOverview(): Observable<RoutinesOverview> {
+    return this.http.get<RoutinesOverview>(`${this.baseUrl}/routines/overview`, {
+      headers: this.getAuthHeaders()
+    });
+  }
+
+  public triageInboxNow(request: RoutineRunRequest = {}): Observable<RoutineRunResult> {
+    return this.http.post<RoutineRunResult>(`${this.baseUrl}/routines/triage`, request, {
+      headers: this.getAuthHeaders()
+    });
+  }
+
+  public runRoutineJob(jobId: string, request: RoutineRunRequest = {}): Observable<RoutineRunResult> {
+    return this.http.post<RoutineRunResult>(
+      `${this.baseUrl}/routines/${encodeURIComponent(jobId)}/run`,
+      request,
       { headers: this.getAuthHeaders() }
     );
   }

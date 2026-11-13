@@ -1,5 +1,5 @@
 <div class="generative-canvas">
-  <div *ngFor="let block of blocks" class="canvas-block" [ngClass]="'block-' + block.type">
+  <div *ngFor="let block of blocks; trackBy: trackByBlockId" class="canvas-block" [ngClass]="'block-' + block.type">
     
     <!-- 1. KPI GRID BLOCK (.strip / .cell / .big) -->
     <div
@@ -464,6 +464,85 @@
           >
             {{ ev.startTime }} {{ ev.title }}
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. ROUTINES PANEL BLOCK (WI 0005) -->
+    <div *ngIf="block.type === 'routines-panel' && block.routinesOverview as routines" data-block-type="routines-panel">
+      <div class="page-head">
+        <div>
+          <div class="eyebrow-row">
+            <span class="eyebrow">Execução autônoma</span>
+            <span class="wi">WI 0005</span>
+          </div>
+          <h1>Rotinas e inbox</h1>
+          <p class="lede">
+            O GranBrain trabalha de madrugada. Nada é apagado: o que for triado vai para <span class="mono">inbox/_archive/</span>.
+          </p>
+        </div>
+        <div class="head-actions">
+          <button
+            type="button"
+            class="btn primary"
+            data-routine-triage
+            [disabled]="routineTriagePending"
+            (click)="onRequestRoutineTriage(block.id)"
+          >
+            {{ routineTriagePending ? 'Triando…' : 'Triar inbox agora' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="grid g-3">
+        <article class="card routine" *ngFor="let r of routines.routines">
+          <div class="card-h">
+            <h2>{{ r.title }}</h2>
+            <span class="pill" [ngClass]="r.statusTone">{{ r.status }}</span>
+          </div>
+          <span class="mono muted">{{ r.jobId }}</span>
+          <p class="small">{{ r.scheduleLabel }}</p>
+          <p class="small muted">{{ r.lastRunSummary }}</p>
+          <button
+            type="button"
+            class="btn sm ghost"
+            [attr.data-routine-run]="r.jobId"
+            [disabled]="routineTriagePending || routineRunningJobId === r.jobId"
+            (click)="onRunRoutineJob(r.jobId, block.id)"
+          >
+            {{ routineRunningJobId === r.jobId ? 'Executando…' : 'Executar agora' }}
+          </button>
+        </article>
+      </div>
+
+      <div class="grid g-2 mt">
+        <div class="card">
+          <div class="card-h">
+            <h2>Inbox · {{ routines.inboxItems.length }} {{ routines.inboxItems.length === 1 ? 'item' : 'itens' }}</h2>
+            <span class="pill accent">nada é apagado</span>
+          </div>
+          <div class="row" *ngFor="let item of routines.inboxItems">
+            <span class="grow">
+              <strong class="nt">{{ item.fileName }}</strong>
+              <span class="small muted">sugestão → <span class="mono">{{ item.suggestedDestination }}</span></span>
+            </span>
+            <span class="pill">{{ item.tag }}</span>
+          </div>
+          <p *ngIf="routines.inboxItems.length === 0" class="empty">Inbox vazio. Tudo foi triado.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-h">
+            <h2>Registro de execução</h2>
+          </div>
+          <div class="logrow" *ngFor="let log of routines.logs">
+            <span class="mono muted">{{ log.displayTime }}</span>
+            <div>
+              <p>{{ log.message }}</p>
+              <span class="small muted">{{ log.jobId }} · {{ log.itemsProcessed }} processado(s)</span>
+            </div>
+          </div>
+          <p *ngIf="routines.logs.length === 0" class="empty">Nenhuma execução registrada ainda.</p>
         </div>
       </div>
     </div>

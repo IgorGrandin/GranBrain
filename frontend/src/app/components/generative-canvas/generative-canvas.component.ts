@@ -25,6 +25,8 @@ import {
 export class GenerativeCanvasComponent implements OnInit {
   @Input() public blocks: GenerativeUiBlock[] = [];
   @Input() public isListening = false;
+  @Input() public routineTriagePending = false;
+  @Input() public routineRunningJobId: string | null = null;
 
   @Output() public habitToggled = new EventEmitter<{ habit: HabitItem; blockId: string }>();
   @Output() public kanbanTaskMoved = new EventEmitter<{ boardName: string; taskText: string; targetColumn: string; blockId: string }>();
@@ -36,6 +38,8 @@ export class GenerativeCanvasComponent implements OnInit {
   @Output() public ideaPromoted = new EventEmitter<{ ideaId: string; target: 'permanente' | 'projeto' | 'descartada'; socraticAnswer?: string; blockId: string }>();
   @Output() public agendaSyncRequested = new EventEmitter<{ blockId: string }>();
   @Output() public calendarNoteRequested = new EventEmitter<{ event: CalendarEvent; blockId: string }>();
+  @Output() public routineTriageRequested = new EventEmitter<{ blockId: string }>();
+  @Output() public routineJobRunRequested = new EventEmitter<{ jobId: string; blockId: string }>();
 
   public formStore: Record<string, Record<string, string>> = {};
   public noteSearchQuery = '';
@@ -266,5 +270,17 @@ export class GenerativeCanvasComponent implements OnInit {
   public getCalEventWidthPct(ev: CalendarEvent): number {
     const total = Math.max(1, ev.calendarTotalColumns || 1);
     return (1 / total) * 100;
+  }
+
+  public onRequestRoutineTriage(blockId: string): void {
+    this.routineTriageRequested.emit({ blockId });
+  }
+
+  public onRunRoutineJob(jobId: string, blockId: string): void {
+    this.routineJobRunRequested.emit({ jobId, blockId });
+  }
+
+  public trackByBlockId(_: number, block: GenerativeUiBlock): string {
+    return block.id;
   }
 }

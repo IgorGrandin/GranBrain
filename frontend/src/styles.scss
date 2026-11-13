@@ -408,3 +408,20 @@ button.link { background: transparent; border: 0; padding: 0; cursor: pointer; }
 .cal-ev.clash { border: 1.5px dashed var(--danger); }
 .cal-now { position: absolute; left: 0; right: 0; border-top: 2px solid var(--danger); }
 .cal-now span { position: absolute; left: -60px; width: 50px; text-align: right; transform: translateY(-9px); font: 500 12px var(--font-mono); color: var(--danger); }
+
+/* Bucket A — WI 0005 (Rotinas & Inbox) */
+.row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.row:last-child { border-bottom: 0; padding-bottom: 0; }
+button.row { width: 100%; background: transparent; border: 0; border-bottom: 1px solid var(--line); text-align: left; color: inherit; cursor: pointer; }
+button.row:last-child { border-bottom: 0; }
+button.row[aria-pressed="true"] strong { color: var(--accent); }
+.empty { color: var(--fg-3); font-size: 14px; margin: 0; padding: 14px; border: 1px dashed var(--line-strong); border-radius: 10px; text-align: center; }
+.code { margin: 0; background: var(--surface-2); border-radius: 10px; padding: 14px; font: 12.5px/1.6 var(--font-mono); white-space: pre-wrap; color: var(--fg-2); overflow-x: auto; }
+.logrow { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.logrow:last-child { border-bottom: 0; padding-bottom: 0; }
+.logrow p { margin: 0 0 2px; }
+.routine { display: grid; gap: 8px; align-content: start; }
+.routine p { margin: 0; }
+@media (max-width: 640px) {
+  .logrow { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}

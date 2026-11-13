@@ -116,6 +116,11 @@
           <span>Agenda & Sincronia</span>
           <span class="wi">0003</span>
         </a>
+        <a class="nav-item" [class.on]="currentView === 'rotinas'" href="javascript:void(0)" (click)="openRoutinesView()">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span>Rotinas & Inbox</span>
+          <span class="wi">0005</span>
+        </a>
       </div>
 
       <div class="nav-group">
@@ -164,7 +169,7 @@
       <div class="crumb">
         <span>GranBrain</span>
         <span class="sep">/</span>
-        <strong>{{ currentView === 'ideas' ? 'Ideias & Fleeting' : (currentView === 'agenda' ? 'Agenda & Sincronia' : 'Command Center') }}</strong>
+        <strong>{{ currentView === 'ideas' ? 'Ideias & Fleeting' : (currentView === 'agenda' ? 'Agenda & Sincronia' : (currentView === 'rotinas' ? 'Rotinas & Inbox' : 'Command Center')) }}</strong>
       </div>
 
       <div class="topbar-end">
@@ -212,6 +217,8 @@
         *ngIf="currentBlocks.length > 0"
         [blocks]="currentBlocks"
         [isListening]="isListening"
+        [routineTriagePending]="routineTriagePending"
+        [routineRunningJobId]="routineRunningJobId"
         (habitToggled)="onHabitToggled($event)"
         (kanbanTaskMoved)="onKanbanTaskMoved($event)"
         (dynamicFormSubmitted)="onDynamicFormSubmitted($event)"
@@ -222,6 +229,8 @@
         (ideaPromoted)="onIdeaPromoted($event)"
         (agendaSyncRequested)="onAgendaSyncRequested($event)"
         (calendarNoteRequested)="onCalendarNoteRequested($event)"
+        (routineTriageRequested)="onRoutineTriageRequested($event)"
+        (routineJobRunRequested)="onRoutineJobRunRequested($event)"
       ></app-generative-canvas>
     </div>
 
