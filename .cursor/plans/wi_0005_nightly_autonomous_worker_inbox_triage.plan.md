@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: fatia-2-api-routines-endpoints-and-orchestrator
     content: "Expor endpoints REST protegidos /api/routines/* em Program.cs, configurar appsettings.json e integrar intenção de rotinas/triagem em AgentOrchestratorService emitindo routines-panel"
-    status: pending
+    status: completed
   - id: fatia-3-frontend-rotinas-panel-and-spec-frontend
     content: "Reconciliar classes CSS Balde A do mockup em styles.scss e implementar modelos, GranBrainApiService, GenerativeCanvasComponent (routines-panel) e navegação rail 0005 em AppComponent"
     status: pending

@@ -16,6 +16,7 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
 
     private readonly IVaultService _vaultService;
     private readonly ICalendarSyncService _calendarSyncService;
+    private readonly IRoutineExecutionService _routineService;
     private readonly ICliProcessRunner _cliRunner;
     private readonly VaultPathGuard _guard;
     private readonly GranBrainOptions _options;
@@ -23,12 +24,14 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
     public AgentOrchestratorService(
         IVaultService vaultService,
         ICalendarSyncService calendarSyncService,
+        IRoutineExecutionService routineService,
         ICliProcessRunner cliRunner,
         VaultPathGuard guard,
         GranBrainOptions options)
     {
         _vaultService = vaultService;
         _calendarSyncService = calendarSyncService;
+        _routineService = routineService;
         _cliRunner = cliRunner;
         _guard = guard;
         _options = options;
@@ -244,6 +247,17 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
             touchedFiles.Add(syncResult.DailyNotePath);
         }
 
+        // Intent: Explicit inbox triage execution
+        if (IsRoutinesIntent(lower) &&
+            (lower.Contains("triar") ||
+             lower.Contains("executar triagem") ||
+             lower.Contains("rodar triagem") ||
+             lower.StartsWith("triagem:", StringComparison.Ordinal)))
+        {
+            var triageResult = await _routineService.RunInboxTriageAsync(null, ct);
+            touchedFiles.AddRange(triageResult.TouchedFiles);
+        }
+
         // Intent: Toggle habit by voice/text ("marcar hábito orar", "concluir hábito café")
         if (lower.Contains("marcar hábito") || lower.Contains("marcar habito") || lower.Contains("concluir hábito"))
         {
@@ -280,6 +294,20 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
         var wantsNotes = wantsAll || lower.Contains("nota") || lower.Contains("zettelkasten") || lower.Contains("estudo") || lower.Contains("seguro") || lower.Contains("csharp") || lower.Contains("índice");
         var wantsIdeas = IsIdeasIntent(lower);
         var wantsAgenda = wantsAll || IsCalendarIntent(lower);
+        var wantsRoutines = IsRoutinesIntent(lower);
+
+        if (wantsRoutines)
+        {
+            var routinesOverview = await _routineService.GetOverviewAsync(null, ct);
+            blocks.Add(new GenerativeUiBlock(
+                Id: "block-routines-panel",
+                Type: GenerativeUiBlockTypes.RoutinesPanel,
+                Title: "Rotinas Autônomas & Triagem do Inbox",
+                Subtitle: routinesOverview.InboxPendingCount > 0
+                    ? $"{routinesOverview.InboxPendingCount} item(ns) pendente(s) no inbox"
+                    : "Inbox vazio — tudo em dia",
+                RoutinesOverview: routinesOverview));
+        }
 
         if (wantsAgenda)
         {
@@ -436,6 +464,17 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
         lower.Contains("conflito") ||
         lower.Contains("outlook") ||
         lower.Contains("teams");
+
+    private static bool IsRoutinesIntent(string lower) =>
+        lower.Contains("rotinas") ||
+        lower.Contains("triagem") ||
+        lower.Contains("triar") ||
+        lower.Contains("inbox") ||
+        lower.Contains("fechamento noturno") ||
+        lower.Contains("preparação matinal") ||
+        lower.Contains("preparacao matinal") ||
+        lower.Contains("nightly") ||
+        lower.Contains("morning prep");
 
     private static string BuildContextualReply(
         string prompt,

@@ -47,6 +47,7 @@ public sealed class ApiSecurityAndAgentTests
             builder.UseSetting("GranBrain:Auth:DefaultPassword", "GranBrain@2026");
             builder.UseSetting("GranBrain:Auth:MaxLoginAttemptsPerWindow", "5");
             builder.UseSetting("GranBrain:Auth:LoginWindowSeconds", "60");
+            builder.UseSetting("GranBrain:Routines:EnableBackgroundScheduler", "false");
 
             builder.ConfigureAppConfiguration((_, config) =>
             {
@@ -56,7 +57,8 @@ public sealed class ApiSecurityAndAgentTests
                     ["GranBrain:Auth:Username"] = "igor",
                     ["GranBrain:Auth:DefaultPassword"] = "GranBrain@2026",
                     ["GranBrain:Auth:MaxLoginAttemptsPerWindow"] = "5",
-                    ["GranBrain:Auth:LoginWindowSeconds"] = "60"
+                    ["GranBrain:Auth:LoginWindowSeconds"] = "60",
+                    ["GranBrain:Routines:EnableBackgroundScheduler"] = "false"
                 });
             });
 
@@ -416,6 +418,7 @@ public sealed class ApiSecurityAndAgentTests
             {
                 builder.UseSetting("GranBrain:VaultPath", tempVault);
                 builder.UseSetting("GranBrain:Calendar:Google:ClientId", "partial-client-only");
+                builder.UseSetting("GranBrain:Routines:EnableBackgroundScheduler", "false");
             });
             using var partialClient = partialFactory.CreateClient();
             var partialLogin = await partialClient.PostAsJsonAsync("/api/auth/login", new LoginRequest("igor", "GranBrain@2026"));
@@ -614,6 +617,117 @@ public sealed class ApiSecurityAndAgentTests
             if (Directory.Exists(tempSyncDir))
             {
                 Directory.Delete(tempSyncDir, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RoutinesEndpoints_EnforceJwtAuth_ValidateInputs_RunJobs_AndEmitRoutinesPanelInAgentChat()
+    {
+        var tempVault = Path.Combine(Path.GetTempPath(), "GranBrainApiRoutinesTest_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tempVault, "inbox"));
+            Directory.CreateDirectory(Path.Combine(tempVault, "assets", "kanban"));
+            Directory.CreateDirectory(Path.Combine(tempVault, "zettelkasten", "Índices"));
+
+            await File.WriteAllTextAsync(
+                Path.Combine(tempVault, "zettelkasten", "Índices", "CSharp.md"),
+                "# CSharp",
+                Encoding.UTF8);
+            await File.WriteAllTextAsync(
+                Path.Combine(tempVault, "assets", "kanban", "Profissional.md"),
+                "## To Do\n- [ ] Revisar contrato de rotinas\n\n## Doing\n\n## Done\n",
+                Encoding.UTF8);
+            await File.WriteAllTextAsync(
+                Path.Combine(tempVault, "inbox", "Ideia sobre CSharp.md"),
+                "Captura rápida sobre expressões em C# #mobile-capture",
+                Encoding.UTF8);
+
+            using var factory = CreateTestFactory(tempVault);
+            using var client = factory.CreateClient();
+
+            // 1. Unauthenticated requests return 401 Unauthorized
+            var unauthOverview = await client.GetAsync("/api/routines/overview");
+            Assert.Equal(HttpStatusCode.Unauthorized, unauthOverview.StatusCode);
+
+            var unauthTriage = await client.PostAsync("/api/routines/triage", null);
+            Assert.Equal(HttpStatusCode.Unauthorized, unauthTriage.StatusCode);
+
+            var loginRes = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("igor", "GranBrain@2026"));
+            var token = (await loginRes.Content.ReadFromJsonAsync<LoginResponse>())!.Token;
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // 2. GET /api/routines/overview -> 200 OK with 1 pending item and 3 routine cards
+            var overviewRes = await client.GetAsync("/api/routines/overview");
+            Assert.Equal(HttpStatusCode.OK, overviewRes.StatusCode);
+            var overview = await overviewRes.Content.ReadFromJsonAsync<RoutinesOverviewDto>();
+            Assert.NotNull(overview);
+            Assert.Equal(1, overview.InboxPendingCount);
+            Assert.Equal(3, overview.Routines.Count);
+
+            // 3. POST /api/routines/triage with empty body -> 200 OK and moves item to zettelkasten + _archive
+            var triageRes = await client.PostAsync("/api/routines/triage", null);
+            Assert.Equal(HttpStatusCode.OK, triageRes.StatusCode);
+            var triagePayload = await triageRes.Content.ReadFromJsonAsync<RoutineRunResultDto>();
+            Assert.NotNull(triagePayload);
+            Assert.True(triagePayload.Succeeded);
+            Assert.Equal(1, triagePayload.ProcessedCount);
+            Assert.Equal(0, triagePayload.Overview.InboxPendingCount);
+            Assert.True(File.Exists(Path.Combine(tempVault, "zettelkasten", "Ideia sobre CSharp.md")));
+            Assert.True(File.Exists(Path.Combine(tempVault, "inbox", "_archive", "Ideia sobre CSharp.md")));
+
+            // 4. POST /api/routines/MorningPrepJob/run and NightlyClosureJob/run -> 200 OK
+            var morningRes = await client.PostAsJsonAsync("/api/routines/MorningPrepJob/run", new RoutineRunRequest(Date: "2026-10-30"));
+            Assert.Equal(HttpStatusCode.OK, morningRes.StatusCode);
+            var morningPayload = await morningRes.Content.ReadFromJsonAsync<RoutineRunResultDto>();
+            Assert.NotNull(morningPayload);
+            Assert.True(morningPayload.Succeeded);
+
+            var nightlyRes = await client.PostAsJsonAsync("/api/routines/NightlyClosureJob/run", new RoutineRunRequest(Date: "2026-10-30"));
+            Assert.Equal(HttpStatusCode.OK, nightlyRes.StatusCode);
+            var nightlyPayload = await nightlyRes.Content.ReadFromJsonAsync<RoutineRunResultDto>();
+            Assert.NotNull(nightlyPayload);
+            Assert.True(nightlyPayload.Succeeded);
+            var dailyContent = await File.ReadAllTextAsync(Path.Combine(tempVault, "daily", "2026-10-30.md"), Encoding.UTF8);
+            Assert.Contains("<!-- routine-id:morning-prep -->", dailyContent);
+            Assert.Contains("<!-- routine-id:nightly-closure -->", dailyContent);
+
+            // 5. Validation errors: 400 invalid_routine_date, 400 invalid_request_body, 400 vault_path_violation, 404 routine_job_not_found
+            var invalidDateRes = await client.PostAsJsonAsync("/api/routines/triage", new RoutineRunRequest(Date: "31-10-2026"));
+            Assert.Equal(HttpStatusCode.BadRequest, invalidDateRes.StatusCode);
+            Assert.Contains("invalid_routine_date", await invalidDateRes.Content.ReadAsStringAsync());
+
+            var badJsonRes = await client.PostAsync(
+                "/api/routines/triage",
+                new StringContent("{ invalid json", Encoding.UTF8, "application/json"));
+            Assert.Equal(HttpStatusCode.BadRequest, badJsonRes.StatusCode);
+            Assert.Contains("invalid_request_body", await badJsonRes.Content.ReadAsStringAsync());
+
+            var traversalRes = await client.PostAsJsonAsync("/api/routines/triage", new RoutineRunRequest(InboxFolder: "../../evil"));
+            Assert.Equal(HttpStatusCode.BadRequest, traversalRes.StatusCode);
+            Assert.Contains("vault_path_violation", await traversalRes.Content.ReadAsStringAsync());
+
+            var unknownJobRes = await client.PostAsJsonAsync("/api/routines/UnknownJob/run", new RoutineRunRequest());
+            Assert.Equal(HttpStatusCode.NotFound, unknownJobRes.StatusCode);
+            Assert.Contains("routine_job_not_found", await unknownJobRes.Content.ReadAsStringAsync());
+
+            // 6. AgentOrchestratorService emits routines-panel block for routines/inbox prompt
+            var agentRes = await client.PostAsJsonAsync(
+                "/api/agent/chat",
+                new AgentChatRequest("Mostrar rotinas e triagem do inbox", "codex"));
+            Assert.Equal(HttpStatusCode.OK, agentRes.StatusCode);
+            var agentEnvelope = await agentRes.Content.ReadFromJsonAsync<AgentResponseEnvelope>();
+            Assert.NotNull(agentEnvelope);
+            var routinesBlock = Assert.Single(agentEnvelope.UiBlocks, b => b.Type == GenerativeUiBlockTypes.RoutinesPanel);
+            Assert.NotNull(routinesBlock.RoutinesOverview);
+            Assert.Equal(3, routinesBlock.RoutinesOverview.Routines.Count);
+        }
+        finally
+        {
+            if (Directory.Exists(tempVault))
+            {
+                Directory.Delete(tempVault, true);
             }
         }
     }

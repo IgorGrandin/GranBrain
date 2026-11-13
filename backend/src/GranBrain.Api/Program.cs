@@ -9,6 +9,7 @@ using GranBrain.Core.Models;
 using GranBrain.Core.Security;
 using GranBrain.Infrastructure.Agents;
 using GranBrain.Infrastructure.Calendar;
+using GranBrain.Infrastructure.Jobs;
 using GranBrain.Infrastructure.Vault;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Cors.Infrastructure;
@@ -35,6 +36,14 @@ builder.Services.AddSingleton(sp =>
         .Get<CalendarOptions>() ?? new CalendarOptions();
 });
 
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    return config
+        .GetSection($"{GranBrainOptions.SectionName}:{RoutinesOptions.SectionName}")
+        .Get<RoutinesOptions>() ?? new RoutinesOptions();
+});
+
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton(sp => new VaultPathGuard(sp.GetRequiredService<GranBrainOptions>().VaultPath));
 builder.Services.AddSingleton<VaultInitializer>();
@@ -42,6 +51,8 @@ builder.Services.AddSingleton<IVaultService, ObsidianVaultService>();
 builder.Services.AddSingleton<ICalendarConnector, GoogleCalendarConnector>();
 builder.Services.AddSingleton<ICalendarConnector, MicrosoftGraphCalendarConnector>();
 builder.Services.AddSingleton<ICalendarSyncService, CalendarSyncService>();
+builder.Services.AddSingleton<IRoutineExecutionService, RoutineExecutionService>();
+builder.Services.AddHostedService<RoutineSchedulerHostedService>();
 builder.Services.AddSingleton<ICliProcessRunner, CliProcessRunner>();
 builder.Services.AddSingleton<IAgentOrchestrator, AgentOrchestratorService>();
 
@@ -168,6 +179,7 @@ app.MapGet("/api/health", (HttpContext httpContext, GranBrainOptions runtimeOpti
 app.MapAuthEndpoints();
 app.MapVaultEndpoints();
 app.MapCalendarEndpoints();
+app.MapRoutinesEndpoints();
 app.MapAgentEndpoints();
 
 app.Run();
