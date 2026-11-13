@@ -240,4 +240,64 @@ public sealed class ObsidianVaultServiceTests
             }
         }
     }
+
+    [Fact]
+    public async Task HabitsParser_IsolatesCronogramaSection_AndIgnoresSyncedCalendarLines()
+    {
+        var tempVault = Path.Combine(Path.GetTempPath(), "GranBrainHabitIsolationTest_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tempVault, "daily"));
+            var testDate = new DateOnly(2026, 10, 30);
+            var dailyPath = Path.Combine(tempVault, "daily", "2026-10-30.md");
+
+            // Note has a checkbox BEFORE #### Cronograma, zero real habits inside #### Cronograma,
+            // synced calendar lines with <!-- cal-id:... -->, and a checkbox AFTER #### Cronograma.
+            await File.WriteAllTextAsync(
+                dailyPath,
+                """
+                ---
+                type: daily
+                created: "2026-10-30"
+                ---
+
+                ## Preparação
+                - [ ] Checkbox fora do cronograma antes
+
+                #### Cronograma
+
+                - 09:00–09:30 · Daily do time Projeto X (Teams) <!-- cal-id:ms-daily -->
+                - [ ] 15:00–16:00 · Revisão de arquitetura (Teams) <!-- cal-id:ms-arch -->
+
+                #### Tarefas
+
+                - [ ] Tarefa fora do cronograma depois
+                """,
+                Encoding.UTF8);
+
+            var guard = new VaultPathGuard(tempVault);
+            var initializer = new VaultInitializer(guard);
+            var service = new ObsidianVaultService(guard, initializer);
+
+            // Even with 0 valid habits in #### Cronograma, checkboxes outside #### Cronograma must NOT be parsed
+            var habits = await service.GetDailyHabitsAsync(testDate);
+            Assert.Empty(habits);
+
+            // Toggling outside or calendar-marked item must throw habit_not_found
+            var exOutside = await Assert.ThrowsAsync<VaultEntityNotFoundException>(() =>
+                service.ToggleHabitAsync("Checkbox fora do cronograma", testDate));
+            Assert.Equal("habit_not_found", exOutside.ErrorCode);
+
+            var exCalendar = await Assert.ThrowsAsync<VaultEntityNotFoundException>(() =>
+                service.ToggleHabitAsync("Revisão de arquitetura", testDate));
+            Assert.Equal("habit_not_found", exCalendar.ErrorCode);
+        }
+        finally
+        {
+            if (Directory.Exists(tempVault))
+            {
+                Directory.Delete(tempVault, true);
+            }
+        }
+    }
 }

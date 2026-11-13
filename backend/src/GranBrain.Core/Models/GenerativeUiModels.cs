@@ -9,6 +9,7 @@ public static class GenerativeUiBlockTypes
     public const string MarkdownNoteList = "markdown-note-list";
     public const string IdeaCapture = "idea-capture";
     public const string BrainstormCanvas = "brainstorm-canvas";
+    public const string AgendaTimeline = "agenda-timeline";
 }
 
 public sealed record KpiMetricItemDto(
@@ -42,7 +43,8 @@ public sealed record GenerativeUiBlock(
     KanbanBoardDto? Kanban = null,
     DynamicFormSchemaDto? Form = null,
     IReadOnlyList<VaultNoteSummaryDto>? Notes = null,
-    IdeasOverviewDto? IdeasOverview = null);
+    IdeasOverviewDto? IdeasOverview = null,
+    CalendarTodayDto? CalendarAgenda = null);
 
 public sealed record AiProviderStatusDto(
     string Id,

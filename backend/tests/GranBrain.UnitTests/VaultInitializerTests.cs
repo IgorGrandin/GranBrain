@@ -49,8 +49,21 @@ public sealed class VaultInitializerTests
             Assert.True(Directory.Exists(Path.Combine(tempVault, "inbox")));
             Assert.True(File.Exists(Path.Combine(tempVault, "templates", "Brainstorming.md")));
             Assert.True(File.Exists(Path.Combine(tempVault, "templates", "Projetos.md")));
+            Assert.True(File.Exists(Path.Combine(tempVault, "templates", "Reuniões.md")));
             Assert.True(File.Exists(Path.Combine(tempVault, "zettelkasten", "Permanente.md")));
             Assert.True(File.Exists(Path.Combine(tempVault, "zettelkasten", "Brainstorming.md")));
+
+            var reunioesTemplate = await File.ReadAllTextAsync(Path.Combine(tempVault, "templates", "Reuniões.md"), Encoding.UTF8);
+            Assert.Contains("type: reuniao", reunioesTemplate);
+            Assert.Contains("## 📝 Discussão & Anotações", reunioesTemplate);
+            Assert.Contains("## ✅ Plano de Ação & Tarefas", reunioesTemplate);
+
+            // Second execution preserves customized templates/Reuniões.md
+            var customMarker = "\n<!-- custom-meeting-template -->\n";
+            await File.AppendAllTextAsync(Path.Combine(tempVault, "templates", "Reuniões.md"), customMarker, Encoding.UTF8);
+            await initializer.EnsureInitializedAsync();
+            var reunioesAfter = await File.ReadAllTextAsync(Path.Combine(tempVault, "templates", "Reuniões.md"), Encoding.UTF8);
+            Assert.Contains(customMarker.Trim(), reunioesAfter);
 
             var brainstormingCentral = await File.ReadAllTextAsync(Path.Combine(tempVault, "zettelkasten", "Brainstorming.md"), Encoding.UTF8);
             Assert.Contains("```dataview", brainstormingCentral);

@@ -64,6 +64,12 @@ public sealed class VaultInitializer
             await File.WriteAllTextAsync(projetosTemplatePath, BuildProjetosTemplateMarkdown(), Encoding.UTF8, ct);
         }
 
+        var reunioesTemplatePath = _guard.ResolveSafePath(Path.Combine("templates", "Reuniões.md"));
+        if (!File.Exists(reunioesTemplatePath))
+        {
+            await File.WriteAllTextAsync(reunioesTemplatePath, BuildReunioesTemplateMarkdown(), Encoding.UTF8, ct);
+        }
+
         foreach (var file in Directory.EnumerateFiles(templatesDir, "*.md", SearchOption.TopDirectoryOnly))
         {
             var content = await File.ReadAllTextAsync(file, Encoding.UTF8, ct);
@@ -342,6 +348,51 @@ public sealed class VaultInitializer
         FROM "zettelkasten"
         WHERE type = "projeto"
         SORT file.mtime DESC
+        ```
+        """;
+
+    private static string BuildReunioesTemplateMarkdown() => """
+        ---
+        type: reuniao
+        created: "{{date}} {{time}}"
+        tags:
+          - reuniao
+        projeto: 
+        participantes: []
+        status: pendente
+        aliases: []
+        ---
+
+        # 🤝🏻 Reunião — {{title}}
+
+        > [!info] Metadados da Reunião
+        > - **Data/Hora:** {{date}} {{time}}
+        > - **Projeto Vinculado:** [[{{projeto}}]]
+        > - **Participantes:** 
+        > - **Link da Chamada / Local:** 
+
+        ---
+
+        ## 🎯 Pauta & Objetivos
+        - 
+
+        ---
+
+        ## 📝 Discussão & Anotações
+        - 
+
+        ---
+
+        ## ✅ Plano de Ação & Tarefas
+        - [ ] 
+
+        ---
+
+        ## 🔗 Notas Relacionadas
+        ```dataview
+        LIST
+        FROM "zettelkasten"
+        WHERE contains(file.outlinks, this.file.link)
         ```
         """;
 }

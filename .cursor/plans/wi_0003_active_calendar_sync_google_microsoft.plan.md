@@ -4,7 +4,7 @@ overview: "Implementar sincronização ativa de calendários Google + Microsoft 
 todos:
   - id: fatia-1-backend-calendar-connectors-and-vault-sync
     content: "Implementar opções, contratos, conectores Google/Microsoft Graph, agregação de conflitos/timezone e sincronização idempotente no vault com guarda em hábitos e templates"
-    status: pending
+    status: completed
   - id: fatia-2-api-calendar-endpoints-and-orchestrator
     content: "Expor endpoints REST /api/calendar/* protegidos e integrar intenção de agenda ao AgentOrchestratorService emitindo bloco agenda-timeline"
     status: pending

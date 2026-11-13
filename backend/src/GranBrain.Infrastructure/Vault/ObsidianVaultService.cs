@@ -113,6 +113,11 @@ public sealed class ObsidianVaultService : IVaultService
                 inCronograma = false;
             }
 
+            if (!inCronograma || lines[i].Contains("<!-- cal-id:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             var match = HabitLineRegex.Match(lines[i]);
             if (!match.Success)
             {
@@ -1067,7 +1072,7 @@ public sealed class ObsidianVaultService : IVaultService
                 break;
             }
 
-            if (!inCronograma && habits.Count > 0)
+            if (!inCronograma || line.Contains("<!-- cal-id:", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
