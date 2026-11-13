@@ -323,5 +323,201 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       const micBtnLive = fixture.debugElement.query(By.css('.btn.mic.live'));
       expect(micBtnLive).withContext('Should add .btn.mic.live class when listening').not.toBeNull();
     });
+
+    it('AppComponent navigates to Ideas 0002 view and executes idea capture, brainstorm and promotion flows', () => {
+      fixture.detectChanges();
+      component.isAuthenticated = true;
+      fixture.detectChanges();
+
+      const ideasNav = fixture.debugElement.queryAll(By.css('.rail .nav-item'))
+        .find((el) => el.nativeElement.textContent.includes('0002'));
+      expect(ideasNav).withContext('Should render 0002 nav item in rail').toBeTruthy();
+
+      ideasNav!.nativeElement.click();
+      const overviewReq = httpMock.expectOne('/api/vault/ideas/overview');
+      expect(overviewReq.request.method).toBe('GET');
+      overviewReq.flush({
+        ideas: [
+          { id: 'idea-1', text: 'Motor de ideias', time: '09:00', status: 'fleeting', sourcePath: 'zettelkasten/Fleeting.md' }
+        ],
+        fleetingCount: 1,
+        brainstormCount: 0,
+        promotedCount: 0,
+        discardedCount: 0,
+        activeSession: null
+      });
+
+      fixture.detectChanges();
+      expect((component as any).currentView).toBe('ideas');
+      expect(component.currentBlocks.some((b) => b.type === 'idea-capture')).toBeTrue();
+      expect(component.currentBlocks.some((b) => b.type === 'brainstorm-canvas')).toBeTrue();
+
+      (component as any).onIdeaCaptured({ text: 'Nova ideia', target: 'fleeting', blockId: 'blk-idea-cap' });
+      const capReq = httpMock.expectOne('/api/vault/ideas/fleeting');
+      expect(capReq.request.method).toBe('POST');
+      capReq.flush({ id: 'idea-2', text: 'Nova ideia', time: '09:05', status: 'fleeting', sourcePath: 'zettelkasten/Fleeting.md' });
+      httpMock.expectOne('/api/vault/ideas/overview').flush({
+        ideas: [],
+        fleetingCount: 2,
+        brainstormCount: 0,
+        promotedCount: 0,
+        discardedCount: 0,
+        activeSession: null
+      });
+
+      (component as any).onIdeaBrainstormRequested({ ideaId: 'idea-2', ideaText: 'Nova ideia', blockId: 'blk-bs' });
+      const bsReq = httpMock.expectOne('/api/vault/ideas/brainstorm');
+      expect(bsReq.request.method).toBe('POST');
+      bsReq.flush({
+        idea: { id: 'idea-2', text: 'Nova ideia', time: '09:05', status: 'brainstorm', sourcePath: 'zettelkasten/Fleeting.md' },
+        notePath: 'zettelkasten/Brainstorming - Nova ideia.md',
+        problem: 'Problema central',
+        hypotheses: [{ text: 'H1', confidence: 'alta' }],
+        risks: [{ text: 'R1', severity: 'alto' }],
+        socraticQuestion: 'Por que agora?'
+      });
+      httpMock.expectOne('/api/vault/ideas/overview').flush({
+        ideas: [],
+        fleetingCount: 1,
+        brainstormCount: 1,
+        promotedCount: 0,
+        discardedCount: 0,
+        activeSession: null
+      });
+
+      (component as any).onIdeaPromoted({ ideaId: 'idea-2', target: 'permanente', socraticAnswer: 'Porque sim', blockId: 'blk-bs' });
+      const promReq = httpMock.expectOne('/api/vault/ideas/promote');
+      expect(promReq.request.method).toBe('POST');
+      promReq.flush({
+        idea: { id: 'idea-2', text: 'Nova ideia', time: '09:05', status: 'promovida', sourcePath: 'zettelkasten/Fleeting.md' },
+        originPath: 'zettelkasten/Brainstorming - Nova ideia.md',
+        targetPath: 'zettelkasten/Nova ideia.md',
+        status: 'promovida'
+      });
+      httpMock.expectOne('/api/vault/ideas/overview').flush({
+        ideas: [],
+        fleetingCount: 1,
+        brainstormCount: 0,
+        promotedCount: 1,
+        discardedCount: 0,
+        activeSession: null
+      });
+
+      fixture.detectChanges();
+      const toastEl = fixture.debugElement.query(By.css('.toasts .toast'));
+      expect(toastEl).withContext('Should show toast feedback').not.toBeNull();
+    });
+  });
+
+  describe('GenerativeCanvasComponent Ideas & Brainstorm Blocks', () => {
+    let fixture: ComponentFixture<GenerativeCanvasComponent>;
+    let component: GenerativeCanvasComponent;
+
+    beforeEach(async () => {
+      await TestBed.configureTestingModule({
+        imports: [GenerativeCanvasComponent],
+        providers: [provideIonicAngular()]
+      }).compileComponents();
+
+      fixture = TestBed.createComponent(GenerativeCanvasComponent);
+      component = fixture.componentInstance;
+    });
+
+    it('GenerativeCanvasComponent renders idea-capture and brainstorm-canvas blocks and dispatches idea actions', async () => {
+      const overview: any = {
+        ideas: [
+          { id: 'i1', text: 'Ideia fleeting', time: '08:10', status: 'fleeting', sourcePath: 'zettelkasten/Fleeting.md' },
+          { id: 'i2', text: 'Ideia em brainstorm', time: '08:20', status: 'brainstorm', sourcePath: 'zettelkasten/Fleeting.md' },
+          { id: 'i3', text: 'Ideia promovida', time: '08:30', status: 'promovida', sourcePath: 'zettelkasten/Fleeting.md' },
+          { id: 'i4', text: 'Ideia descartada', time: '08:40', status: 'descartada', sourcePath: 'zettelkasten/Fleeting.md' }
+        ],
+        fleetingCount: 1,
+        brainstormCount: 1,
+        promotedCount: 1,
+        discardedCount: 1,
+        activeSession: {
+          idea: { id: 'i2', text: 'Ideia em brainstorm', time: '08:20', status: 'brainstorm', sourcePath: 'zettelkasten/Fleeting.md' },
+          notePath: 'zettelkasten/Brainstorming - Ideia em brainstorm.md',
+          problem: 'Falta de validação rápida',
+          hypotheses: [
+            { text: 'Validação reduz retrabalho', confidence: 'alta' },
+            { text: 'Template único acelera', confidence: 'média' }
+          ],
+          risks: [
+            { text: 'Escopo crescer demais', severity: 'alto' },
+            { text: 'Pouco uso diário', severity: 'baixo' }
+          ],
+          socraticQuestion: 'Qual evidência prova que isso resolve o problema?'
+        }
+      };
+
+      component.blocks = [
+        { id: 'b-cap', type: 'idea-capture' as any, title: 'Captura', ideasOverview: overview } as any,
+        { id: 'b-bs', type: 'brainstorm-canvas' as any, title: 'Brainstorm', ideasOverview: overview } as any
+      ];
+      fixture.detectChanges();
+
+      const capBlock = fixture.debugElement.query(By.css('[data-block-type="idea-capture"]'));
+      expect(capBlock).not.toBeNull();
+      expect(capBlock.query(By.css('.input.big-in'))).not.toBeNull();
+      expect(capBlock.query(By.css('.btn.icon.mic'))).not.toBeNull();
+      expect(capBlock.query(By.css('.hint'))).not.toBeNull();
+
+      const bsBlock = fixture.debugElement.query(By.css('[data-block-type="brainstorm-canvas"]'));
+      expect(bsBlock).not.toBeNull();
+      const stagePills = bsBlock.queryAll(By.css('.stages .pill'));
+      expect(stagePills.length).toBe(4);
+      expect(bsBlock.query(By.css('.stages .pill.info'))).not.toBeNull();
+      expect(bsBlock.query(By.css('.stages .pill.accent'))).not.toBeNull();
+      expect(bsBlock.query(By.css('.stages .pill.ok'))).not.toBeNull();
+
+      const ideaRows = bsBlock.queryAll(By.css('.idea'));
+      expect(ideaRows.length).toBe(4);
+      expect(ideaRows[0].query(By.css('[data-idea-brainstorm]'))).not.toBeNull();
+      expect(ideaRows[1].query(By.css('[data-idea-brainstorm]'))).toBeNull();
+      expect(ideaRows[2].query(By.css('.acts'))).toBeNull();
+      expect(ideaRows[3].query(By.css('.acts'))).toBeNull();
+
+      expect(bsBlock.query(By.css('.session-h'))).not.toBeNull();
+      const board3El = bsBlock.query(By.css('.board3'));
+      expect(board3El).not.toBeNull();
+      expect(board3El.queryAll(By.css('.hyp')).length).toBe(4);
+
+      const qEl = bsBlock.query(By.css('.socratic .q'));
+      expect(qEl).not.toBeNull();
+      expect(bsBlock.query(By.css('.bar-actions'))).not.toBeNull();
+
+      // Computed style checks against mockup
+      const board3Style = getComputedStyle(board3El.nativeElement);
+      const ideaStyle = getComputedStyle(ideaRows[0].nativeElement);
+      const qStyle = getComputedStyle(qEl.nativeElement);
+      expect(board3Style.display).toBe('grid');
+      expect(ideaStyle.display).toBe('flex');
+      expect(qStyle.fontSize).toBe('21px');
+      expect(qStyle.fontFamily).toContain('Bricolage Grotesque');
+
+      // Event emissions
+      const capSpy = spyOn((component as any).ideaCaptured, 'emit');
+      const voiceSpy = spyOn((component as any).ideaVoiceTriggered, 'emit');
+      const bsSpy = spyOn((component as any).ideaBrainstormRequested, 'emit');
+      const promSpy = spyOn((component as any).ideaPromoted, 'emit');
+
+      await fixture.whenStable();
+      const inputEl = capBlock.query(By.css('[data-idea-input]')).nativeElement as HTMLInputElement;
+      inputEl.value = 'Ideia digitada';
+      inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+      fixture.detectChanges();
+      capBlock.query(By.css('form.quick-form')).triggerEventHandler('ngSubmit', null);
+      expect(capSpy).toHaveBeenCalledWith({ text: 'Ideia digitada', target: 'fleeting', blockId: 'b-cap' });
+
+      capBlock.query(By.css('[data-idea-voice]')).nativeElement.click();
+      expect(voiceSpy).toHaveBeenCalledWith({ blockId: 'b-cap' });
+
+      ideaRows[0].query(By.css('[data-idea-brainstorm]')).nativeElement.click();
+      expect(bsSpy).toHaveBeenCalledWith({ ideaId: 'i1', ideaText: 'Ideia fleeting', blockId: 'b-bs' });
+
+      bsBlock.query(By.css('[data-session-promote="permanente"]')).nativeElement.click();
+      expect(promSpy).toHaveBeenCalled();
+    });
   });
 });

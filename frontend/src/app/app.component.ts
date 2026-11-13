@@ -8,6 +8,7 @@ import {
   AiProviderStatus,
   GenerativeUiBlock,
   HabitItem,
+  IdeasOverview,
   VaultNoteSummary
 } from './models/granbrain.models';
 import { GenerativeCanvasComponent } from './components/generative-canvas/generative-canvas.component';
@@ -283,6 +284,81 @@ export class AppComponent implements OnInit, OnDestroy {
       text: `Nota selecionada: ${event.note.title} (${event.note.relativePath})`,
       timestamp: new Date()
     });
+  }
+
+  public openDashboardView(): void {
+    this.currentView = 'dashboard';
+    this.loadInitialOverview();
+  }
+
+  public openIdeasView(): void {
+    this.currentView = 'ideas';
+    this.loadIdeasOverview();
+  }
+
+  public onIdeaCaptured(event: { text: string; target?: string; blockId: string }): void {
+    this.api.captureFleetingIdea({ text: event.text, target: event.target || 'fleeting' }).subscribe({
+      next: () => {
+        this.showToast('Ideia capturada em Fleeting.md', 'ok');
+        this.loadIdeasOverview();
+      },
+      error: () => this.showToast('Falha ao capturar ideia', 'danger')
+    });
+  }
+
+  public onIdeaVoiceTriggered(_event: { blockId: string }): void {
+    this.toggleVoice();
+  }
+
+  public onIdeaBrainstormRequested(event: { ideaId: string; ideaText: string; blockId: string }): void {
+    this.api.startBrainstorm({ ideaId: event.ideaId, ideaText: event.ideaText }).subscribe({
+      next: () => {
+        this.showToast('Sessão de brainstorming iniciada', 'ok');
+        this.loadIdeasOverview();
+      },
+      error: () => this.showToast('Falha ao iniciar brainstorming', 'danger')
+    });
+  }
+
+  public onIdeaPromoted(event: { ideaId: string; target: 'permanente' | 'projeto' | 'descartada'; socraticAnswer?: string; blockId: string }): void {
+    this.api.promoteIdea({
+      ideaId: event.ideaId,
+      target: event.target,
+      socraticAnswer: event.socraticAnswer
+    }).subscribe({
+      next: (res) => {
+        const label = res.status === 'descartada' ? 'Ideia descartada' : `Ideia promovida (${event.target})`;
+        this.showToast(label, 'ok');
+        this.loadIdeasOverview();
+      },
+      error: () => this.showToast('Falha ao atualizar ideia', 'danger')
+    });
+  }
+
+  private loadIdeasOverview(): void {
+    this.api.getIdeasOverview().subscribe({
+      next: (ov) => this.applyIdeasBlocks(ov),
+      error: () => this.showToast('Erro ao carregar esteira de ideias', 'danger')
+    });
+  }
+
+  private applyIdeasBlocks(ov: IdeasOverview): void {
+    this.currentBlocks = [
+      {
+        id: 'ideas-capture',
+        type: 'idea-capture',
+        title: 'Captura Rápida de Ideias',
+        subtitle: 'Gravada com horário em zettelkasten/Fleeting.md',
+        ideasOverview: ov
+      },
+      {
+        id: 'ideas-brainstorm',
+        type: 'brainstorm-canvas',
+        title: 'Esteira de Ideação & Brainstorming Socrático',
+        subtitle: 'Fleeting -> Brainstorm -> Permanente / Projetos',
+        ideasOverview: ov
+      }
+    ];
   }
 
   private loadProviders(): void {

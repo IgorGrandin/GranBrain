@@ -211,5 +211,152 @@
       </div>
     </div>
 
+    <!-- 6. IDEA CAPTURE BLOCK (.card-quick / .quick-form / .hint) -->
+    <section
+      *ngIf="block.type === 'idea-capture'"
+      class="card card-quick"
+      data-block-type="idea-capture"
+    >
+      <form (ngSubmit)="onSubmitIdeaCapture(block.id)" class="quick-form">
+        <input
+          class="input big-in"
+          type="text"
+          [(ngModel)]="ideaDraftText"
+          [name]="'idea_' + block.id"
+          placeholder="Registre a ideia antes que ela escape"
+          data-idea-input
+        >
+        <button
+          type="button"
+          class="btn icon mic"
+          [class.live]="isListening"
+          aria-label="Ditar ideia"
+          (click)="onTriggerIdeaVoice(block.id)"
+          data-idea-voice
+        >
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z M19 10v2a7 7 0 01-14 0v-2 M12 19v4 M8 23h8"/>
+          </svg>
+        </button>
+        <button type="submit" class="btn primary" data-idea-submit>Capturar</button>
+      </form>
+      <p class="hint">Gravada com horário em <span class="mono">zettelkasten/Fleeting.md</span>.</p>
+    </section>
+
+    <!-- 7. BRAINSTORM CANVAS BLOCK (.stages / .idea / .session-h / .board3 / .hyp / .socratic / .bar-actions) -->
+    <div
+      *ngIf="block.type === 'brainstorm-canvas' && block.ideasOverview as ov"
+      data-block-type="brainstorm-canvas"
+    >
+      <section class="card">
+        <div class="card-h">
+          <h2>Ideias ativas</h2>
+          <div class="stages">
+            <span class="pill info">Fleeting {{ ov.fleetingCount }}</span>
+            <span class="pill accent">Em brainstorm {{ ov.brainstormCount }}</span>
+            <span class="pill ok">Promovida {{ ov.promotedCount }}</span>
+            <span class="pill">Descartada {{ ov.discardedCount }}</span>
+          </div>
+        </div>
+
+        <div *ngFor="let idea of ov.ideas" class="idea">
+          <div class="idea-main">
+            <p>{{ idea.text }}</p>
+            <span class="mono muted">{{ idea.time }} · {{ idea.sourcePath }}</span>
+          </div>
+          <div class="idea-side">
+            <span [class]="getIdeaStatusPillClass(idea.status)">{{ getIdeaStatusLabel(idea.status) }}</span>
+            <div class="acts" *ngIf="idea.status === 'fleeting' || idea.status === 'brainstorm'">
+              <button
+                *ngIf="idea.status === 'fleeting'"
+                type="button"
+                class="btn sm"
+                data-idea-brainstorm
+                (click)="onRequestBrainstorm(idea, block.id)"
+              >Brainstorm</button>
+              <button
+                type="button"
+                class="btn sm"
+                data-idea-promote
+                (click)="onPromoteIdea(idea.id, 'permanente', block.id)"
+              >Promover</button>
+              <button
+                type="button"
+                class="btn sm ghost"
+                data-idea-discard
+                (click)="onPromoteIdea(idea.id, 'descartada', block.id)"
+              >Descartar</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <ng-container *ngIf="ov.activeSession as session">
+        <section class="card session-h" style="margin-top: 16px;">
+          <div>
+            <span class="eyebrow">Ideia em revisão</span>
+            <h2>{{ session.idea.text }}</h2>
+          </div>
+          <span [class]="getIdeaStatusPillClass(session.idea.status)">{{ getIdeaStatusLabel(session.idea.status) }}</span>
+        </section>
+
+        <div class="board3">
+          <section class="card">
+            <div class="card-h"><h2>Problema</h2></div>
+            <p class="muted" style="margin:0">{{ session.problem }}</p>
+          </section>
+
+          <section class="card">
+            <div class="card-h"><h2>Hipóteses</h2></div>
+            <div *ngFor="let hyp of session.hypotheses" class="hyp">
+              <p>{{ hyp.text }}</p>
+              <span [class]="getConfidencePillClass(hyp.confidence)">{{ hyp.confidence }}</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-h"><h2>Riscos levantados</h2></div>
+            <div *ngFor="let risk of session.risks" class="hyp">
+              <p>{{ risk.text }}</p>
+              <span [class]="getSeverityPillClass(risk.severity)">{{ risk.severity }}</span>
+            </div>
+          </section>
+        </div>
+
+        <section class="card socratic">
+          <span class="eyebrow">Próxima pergunta da IA</span>
+          <p class="q">{{ session.socraticQuestion }}</p>
+          <textarea
+            class="input"
+            rows="3"
+            placeholder="Responda com suas palavras…"
+            [(ngModel)]="socraticAnswer"
+            [name]="'socratic_' + block.id"
+          ></textarea>
+          <div class="bar-actions">
+            <button
+              type="button"
+              class="btn primary"
+              data-session-promote="permanente"
+              (click)="onPromoteIdea(session.idea.id, 'permanente', block.id)"
+            >Promover para Permanente</button>
+            <button
+              type="button"
+              class="btn"
+              data-session-promote="projeto"
+              (click)="onPromoteIdea(session.idea.id, 'projeto', block.id)"
+            >Promover para Projeto</button>
+            <button
+              type="button"
+              class="btn ghost"
+              data-session-promote="descartada"
+              (click)="onPromoteIdea(session.idea.id, 'descartada', block.id)"
+            >Descartar</button>
+          </div>
+          <p class="small muted note-line">Ao promover, a nota de origem recebe o status <span class="mono">promovida</span> e mantém os backlinks.</p>
+        </section>
+      </ng-container>
+    </div>
+
   </div>
 </div>

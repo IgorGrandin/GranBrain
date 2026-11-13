@@ -101,12 +101,12 @@
     <nav class="nav">
       <div class="nav-group">
         <span class="eyebrow">Espaços</span>
-        <a class="nav-item on" href="javascript:void(0)" (click)="currentView = 'dashboard'">
+        <a class="nav-item" [class.on]="currentView === 'dashboard'" href="javascript:void(0)" (click)="openDashboardView()">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
           <span>Painel Principal</span>
           <span class="wi">0001</span>
         </a>
-        <a class="nav-item" href="javascript:void(0)" (click)="showToast('Módulo de Ideias (0002) em breve', 'warn')">
+        <a class="nav-item" [class.on]="currentView === 'ideas'" href="javascript:void(0)" (click)="openIdeasView()">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
           <span>Ideias & Fleeting</span>
           <span class="wi">0002</span>
@@ -147,7 +147,7 @@
       <div class="crumb">
         <span>GranBrain</span>
         <span class="sep">/</span>
-        <strong>Command Center</strong>
+        <strong>{{ currentView === 'ideas' ? 'Ideias & Fleeting' : 'Command Center' }}</strong>
       </div>
 
       <div class="topbar-end">
@@ -194,10 +194,15 @@
       <app-generative-canvas
         *ngIf="currentBlocks.length > 0"
         [blocks]="currentBlocks"
+        [isListening]="isListening"
         (habitToggled)="onHabitToggled($event)"
         (kanbanTaskMoved)="onKanbanTaskMoved($event)"
         (dynamicFormSubmitted)="onDynamicFormSubmitted($event)"
         (noteSelected)="onNoteSelected($event)"
+        (ideaCaptured)="onIdeaCaptured($event)"
+        (ideaVoiceTriggered)="onIdeaVoiceTriggered($event)"
+        (ideaBrainstormRequested)="onIdeaBrainstormRequested($event)"
+        (ideaPromoted)="onIdeaPromoted($event)"
       ></app-generative-canvas>
     </div>
 

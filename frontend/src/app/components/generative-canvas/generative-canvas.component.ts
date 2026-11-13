@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import {
   GenerativeUiBlock,
   HabitItem,
+  IdeaItem,
   KanbanColumn,
   KanbanTask,
   VaultNoteSummary
@@ -21,15 +22,22 @@ import {
 })
 export class GenerativeCanvasComponent implements OnInit {
   @Input() public blocks: GenerativeUiBlock[] = [];
+  @Input() public isListening = false;
 
   @Output() public habitToggled = new EventEmitter<{ habit: HabitItem; blockId: string }>();
   @Output() public kanbanTaskMoved = new EventEmitter<{ boardName: string; taskText: string; targetColumn: string; blockId: string }>();
   @Output() public dynamicFormSubmitted = new EventEmitter<{ formId: string; noteType: string; values: Record<string, string>; blockId: string }>();
   @Output() public noteSelected = new EventEmitter<{ note: VaultNoteSummary; blockId: string }>();
+  @Output() public ideaCaptured = new EventEmitter<{ text: string; target?: string; blockId: string }>();
+  @Output() public ideaVoiceTriggered = new EventEmitter<{ blockId: string }>();
+  @Output() public ideaBrainstormRequested = new EventEmitter<{ ideaId: string; ideaText: string; blockId: string }>();
+  @Output() public ideaPromoted = new EventEmitter<{ ideaId: string; target: 'permanente' | 'projeto' | 'descartada'; socraticAnswer?: string; blockId: string }>();
 
   public formStore: Record<string, Record<string, string>> = {};
   public noteSearchQuery = '';
   public selectedNote?: VaultNoteSummary;
+  public ideaDraftText = '';
+  public socraticAnswer = '';
 
   constructor() {}
 
@@ -121,5 +129,70 @@ export class GenerativeCanvasComponent implements OnInit {
   public onSelectNote(note: VaultNoteSummary, blockId: string): void {
     this.selectedNote = note;
     this.noteSelected.emit({ note, blockId });
+  }
+
+  public onSubmitIdeaCapture(blockId: string): void {
+    const text = this.ideaDraftText.trim();
+    if (!text) return;
+    this.ideaCaptured.emit({ text, target: 'fleeting', blockId });
+    this.ideaDraftText = '';
+  }
+
+  public onTriggerIdeaVoice(blockId: string): void {
+    this.ideaVoiceTriggered.emit({ blockId });
+  }
+
+  public onRequestBrainstorm(idea: IdeaItem, blockId: string): void {
+    this.ideaBrainstormRequested.emit({ ideaId: idea.id, ideaText: idea.text, blockId });
+  }
+
+  public onPromoteIdea(ideaId: string, target: 'permanente' | 'projeto' | 'descartada', blockId: string): void {
+    const answer = this.socraticAnswer.trim();
+    this.ideaPromoted.emit({
+      ideaId,
+      target,
+      socraticAnswer: answer ? answer : undefined,
+      blockId
+    });
+    if (answer) {
+      this.socraticAnswer = '';
+    }
+  }
+
+  public getIdeaStatusPillClass(status: string): string {
+    switch (status) {
+      case 'fleeting': return 'pill info';
+      case 'brainstorm': return 'pill accent';
+      case 'promovida': return 'pill ok';
+      default: return 'pill';
+    }
+  }
+
+  public getIdeaStatusLabel(status: string): string {
+    switch (status) {
+      case 'fleeting': return 'Fleeting';
+      case 'brainstorm': return 'Em brainstorm';
+      case 'promovida': return 'Promovida';
+      case 'descartada': return 'Descartada';
+      default: return status;
+    }
+  }
+
+  public getConfidencePillClass(confidence: string): string {
+    switch (confidence.toLowerCase()) {
+      case 'alta': return 'pill ok';
+      case 'média':
+      case 'media': return 'pill warn';
+      default: return 'pill';
+    }
+  }
+
+  public getSeverityPillClass(severity: string): string {
+    switch (severity.toLowerCase()) {
+      case 'alto': return 'pill danger';
+      case 'médio':
+      case 'medio': return 'pill warn';
+      default: return 'pill';
+    }
   }
 }

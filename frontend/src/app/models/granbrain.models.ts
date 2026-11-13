@@ -3,7 +3,9 @@ export type GenerativeUiBlockType =
   | 'habit-checklist'
   | 'kanban-board'
   | 'dynamic-form'
-  | 'markdown-note-list';
+  | 'markdown-note-list'
+  | 'idea-capture'
+  | 'brainstorm-canvas';
 
 export interface KpiMetricItem {
   label: string;
@@ -73,6 +75,77 @@ export interface GenerativeUiBlock {
   kanban?: KanbanBoard;
   form?: DynamicFormSchema;
   notes?: VaultNoteSummary[];
+  ideasOverview?: IdeasOverview;
+}
+
+export interface IdeaItem {
+  id: string;
+  text: string;
+  time: string;
+  status: 'fleeting' | 'brainstorm' | 'promovida' | 'descartada' | string;
+  sourcePath: string;
+  links?: string[];
+}
+
+export interface BrainstormHypothesis {
+  text: string;
+  confidence: 'alta' | 'média' | 'baixa' | string;
+}
+
+export interface BrainstormRisk {
+  text: string;
+  severity: 'alto' | 'médio' | 'baixo' | string;
+}
+
+export interface BrainstormSession {
+  idea: IdeaItem;
+  notePath: string;
+  problem: string;
+  hypotheses: BrainstormHypothesis[];
+  risks: BrainstormRisk[];
+  socraticQuestion: string;
+  socraticAnswer?: string;
+}
+
+export interface IdeasOverview {
+  ideas: IdeaItem[];
+  fleetingCount: number;
+  brainstormCount: number;
+  promotedCount: number;
+  discardedCount: number;
+  activeSession?: BrainstormSession | null;
+}
+
+export interface FleetingIdeaCaptureRequest {
+  text: string;
+  target?: string;
+  links?: string[];
+  tags?: string[];
+}
+
+export interface BrainstormStartRequest {
+  ideaId?: string;
+  ideaText?: string;
+  problem?: string;
+  hypotheses?: BrainstormHypothesis[];
+  risks?: BrainstormRisk[];
+  socraticQuestion?: string;
+  project?: string;
+}
+
+export interface IdeaPromoteRequest {
+  ideaId: string;
+  target: 'permanente' | 'projeto' | 'descartada' | string;
+  summary?: string;
+  area?: string;
+  socraticAnswer?: string;
+}
+
+export interface IdeaPromotionResult {
+  idea: IdeaItem;
+  originPath: string;
+  targetPath?: string;
+  status: string;
 }
 
 export interface AiProviderStatus {

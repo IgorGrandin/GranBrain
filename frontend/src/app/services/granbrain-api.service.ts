@@ -5,7 +5,14 @@ import {
   AgentChatRequest,
   AgentResponseEnvelope,
   AiProviderStatus,
+  BrainstormSession,
+  BrainstormStartRequest,
+  FleetingIdeaCaptureRequest,
   HabitItem,
+  IdeaItem,
+  IdeaPromoteRequest,
+  IdeaPromotionResult,
+  IdeasOverview,
   KanbanBoard,
   LoginRequest,
   LoginResponse,
@@ -144,5 +151,29 @@ export class GranBrainApiService {
       {},
       { headers: this.getAuthHeaders() }
     );
+  }
+
+  public getIdeasOverview(): Observable<IdeasOverview> {
+    return this.http.get<IdeasOverview>(`${this.baseUrl}/vault/ideas/overview`, {
+      headers: this.getAuthHeaders()
+    });
+  }
+
+  public captureFleetingIdea(req: FleetingIdeaCaptureRequest): Observable<IdeaItem> {
+    return this.http.post<IdeaItem>(`${this.baseUrl}/vault/ideas/fleeting`, req, {
+      headers: this.getAuthHeaders()
+    });
+  }
+
+  public startBrainstorm(req: BrainstormStartRequest): Observable<BrainstormSession> {
+    return this.http.post<BrainstormSession>(`${this.baseUrl}/vault/ideas/brainstorm`, req, {
+      headers: this.getAuthHeaders()
+    });
+  }
+
+  public promoteIdea(req: IdeaPromoteRequest): Observable<IdeaPromotionResult> {
+    return this.http.post<IdeaPromotionResult>(`${this.baseUrl}/vault/ideas/promote`, req, {
+      headers: this.getAuthHeaders()
+    });
   }
 }

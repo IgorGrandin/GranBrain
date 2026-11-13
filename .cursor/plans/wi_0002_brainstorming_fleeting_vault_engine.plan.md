@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: fatia-3-frontend-generative-ui-ideas
     content: "Fatia 3: Estilos canônicos (.idea, .board3, .hyp, .socratic, .bar-actions) em styles.scss, blocos idea-capture e brainstorm-canvas no GenerativeCanvasComponent e navegação 0002 no AppComponent + testes Karma/Jasmine"
-    status: pending
+    status: completed
   - id: gate
     content: "Gate final: dotnet build + dotnet test no backend e npm test + npm run build no frontend sobre árvore limpa"
     status: pending
