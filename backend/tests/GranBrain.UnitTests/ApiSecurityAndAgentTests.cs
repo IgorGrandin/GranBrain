@@ -434,4 +434,187 @@ public sealed class ApiSecurityAndAgentTests
             }
         }
     }
+
+    [Fact]
+    public async Task ForwardedHeadersAndCors_EnforcesClientIpRateLimitAndOriginPolicy()
+    {
+        var tempVault = Path.Combine(Path.GetTempPath(), "GranBrainApiForwardedCorsTest_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempVault);
+        try
+        {
+            using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["GranBrain:VaultPath"] = tempVault,
+                        ["GranBrain:Auth:Username"] = "igor",
+                        ["GranBrain:Auth:DefaultPassword"] = "GranBrain@2026",
+                        ["GranBrain:Auth:MaxLoginAttemptsPerWindow"] = "5",
+                        ["GranBrain:Auth:LoginWindowSeconds"] = "60",
+                        ["GranBrain:AllowedOrigins:0"] = "https://app.granbrain.com.br/"
+                    });
+                });
+            });
+
+            using var client = factory.CreateClient();
+
+            // 1. 5 invalid login attempts for CF-Connecting-IP 198.51.100.77 behind proxy X-Forwarded-For 172.18.0.2 -> 401
+            for (var attempt = 1; attempt <= 5; attempt++)
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+                {
+                    Content = JsonContent.Create(new LoginRequest("igor", "WrongPass"))
+                };
+                req.Headers.TryAddWithoutValidation("CF-Connecting-IP", "198.51.100.77");
+                req.Headers.TryAddWithoutValidation("X-Forwarded-For", "172.18.0.2");
+                req.Headers.TryAddWithoutValidation("X-Forwarded-Proto", "https");
+
+                var res = await client.SendAsync(req);
+                Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+            }
+
+            // 2. 6th attempt from the same CF-Connecting-IP -> 429 rate_limit_exceeded
+            using (var rateLimitedReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+            {
+                Content = JsonContent.Create(new LoginRequest("igor", "WrongPass"))
+            })
+            {
+                rateLimitedReq.Headers.TryAddWithoutValidation("CF-Connecting-IP", "198.51.100.77");
+                rateLimitedReq.Headers.TryAddWithoutValidation("X-Forwarded-For", "172.18.0.2");
+                var rateLimitedRes = await client.SendAsync(rateLimitedReq);
+                Assert.Equal(HttpStatusCode.TooManyRequests, rateLimitedRes.StatusCode);
+                Assert.Contains("rate_limit_exceeded", await rateLimitedRes.Content.ReadAsStringAsync());
+            }
+
+            // 3. Another client sharing the same X-Forwarded-For proxy IP (172.18.0.2) but different CF-Connecting-IP gets an independent bucket -> 200 OK
+            using (var secondCfClientReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+            {
+                Content = JsonContent.Create(new LoginRequest("igor", "GranBrain@2026"))
+            })
+            {
+                secondCfClientReq.Headers.TryAddWithoutValidation("CF-Connecting-IP", "198.51.100.88");
+                secondCfClientReq.Headers.TryAddWithoutValidation("X-Forwarded-For", "172.18.0.2");
+                var secondCfClientRes = await client.SendAsync(secondCfClientReq);
+                Assert.Equal(HttpStatusCode.OK, secondCfClientRes.StatusCode);
+            }
+
+            // 4. Different client IP via X-Forwarded-For without CF-Connecting-IP also gets an independent bucket -> 200 OK
+            using (var otherIpReq = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+            {
+                Content = JsonContent.Create(new LoginRequest("igor", "GranBrain@2026"))
+            })
+            {
+                otherIpReq.Headers.TryAddWithoutValidation("X-Forwarded-For", "203.0.113.5, 172.18.0.2");
+                var otherIpRes = await client.SendAsync(otherIpReq);
+                Assert.Equal(HttpStatusCode.OK, otherIpRes.StatusCode);
+            }
+
+            // 4. CORS preflight OPTIONS for normalized AllowedOrigins -> allows https://app.granbrain.com.br
+            using (var allowedCorsReq = new HttpRequestMessage(HttpMethod.Options, "/api/agent/chat"))
+            {
+                allowedCorsReq.Headers.TryAddWithoutValidation("Origin", "https://app.granbrain.com.br");
+                allowedCorsReq.Headers.TryAddWithoutValidation("Access-Control-Request-Method", "POST");
+                allowedCorsReq.Headers.TryAddWithoutValidation("Access-Control-Request-Headers", "authorization,content-type");
+
+                var allowedCorsRes = await client.SendAsync(allowedCorsReq);
+                Assert.True(allowedCorsRes.Headers.TryGetValues("Access-Control-Allow-Origin", out var allowValues));
+                Assert.Contains("https://app.granbrain.com.br", allowValues);
+            }
+
+            // 5. CORS preflight OPTIONS from unauthorized origin -> omits Access-Control-Allow-Origin
+            using (var evilCorsReq = new HttpRequestMessage(HttpMethod.Options, "/api/agent/chat"))
+            {
+                evilCorsReq.Headers.TryAddWithoutValidation("Origin", "https://evil.example.com");
+                evilCorsReq.Headers.TryAddWithoutValidation("Access-Control-Request-Method", "POST");
+                evilCorsReq.Headers.TryAddWithoutValidation("Access-Control-Request-Headers", "authorization,content-type");
+
+                var evilCorsRes = await client.SendAsync(evilCorsReq);
+                Assert.False(evilCorsRes.Headers.Contains("Access-Control-Allow-Origin"));
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempVault))
+            {
+                Directory.Delete(tempVault, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task HealthEndpoint_ReadsRcloneSyncStatusFileAndHandlesMissingOrCorruptFile()
+    {
+        var tempVault = Path.Combine(Path.GetTempPath(), "GranBrainHealthVault_" + Guid.NewGuid().ToString("N"));
+        var tempSyncDir = Path.Combine(Path.GetTempPath(), "GranBrainHealthSync_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempVault);
+        Directory.CreateDirectory(tempSyncDir);
+        var syncStatusPath = Path.Combine(tempSyncDir, "sync-status.json");
+
+        try
+        {
+            using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["GranBrain:VaultPath"] = tempVault,
+                        ["GranBrain:SyncStatusFilePath"] = syncStatusPath,
+                        ["GranBrain:TunnelMode"] = "cloudflare-tunnel"
+                    });
+                });
+            });
+
+            using var client = factory.CreateClient();
+
+            // 1. Missing sync-status.json -> 200 OK with tunnelStatus=ok and syncStatus=pending
+            var pendingRes = await client.GetAsync("/api/health");
+            Assert.Equal(HttpStatusCode.OK, pendingRes.StatusCode);
+            var pendingDto = await pendingRes.Content.ReadFromJsonAsync<SystemHealthStatusDto>();
+            Assert.NotNull(pendingDto);
+            Assert.Equal("ok", pendingDto.Status);
+            Assert.Equal("GranBrain.Api", pendingDto.Service);
+            Assert.True(pendingDto.VaultAccessible);
+            Assert.Equal("ok", pendingDto.TunnelStatus);
+            Assert.Equal("pending", pendingDto.SyncStatus);
+            Assert.Null(pendingDto.LastSyncedAtUtc);
+
+            // 2. Valid rclone sync-status.json -> reflects ok and lastSyncedAtUtc
+            await File.WriteAllTextAsync(
+                syncStatusPath,
+                """{"status":"ok","lastSyncedAtUtc":"2026-11-13T18:00:00Z"}""",
+                Encoding.UTF8);
+
+            var okRes = await client.GetAsync("/api/health");
+            Assert.Equal(HttpStatusCode.OK, okRes.StatusCode);
+            var okDto = await okRes.Content.ReadFromJsonAsync<SystemHealthStatusDto>();
+            Assert.NotNull(okDto);
+            Assert.Equal("ok", okDto.Status);
+            Assert.Equal("ok", okDto.SyncStatus);
+            Assert.Equal("2026-11-13T18:00:00Z", okDto.LastSyncedAtUtc);
+
+            // 3. Corrupt/truncated JSON -> 200 OK degraded with syncStatus=error (no 500)
+            await File.WriteAllTextAsync(syncStatusPath, "{corrupt", Encoding.UTF8);
+
+            var corruptRes = await client.GetAsync("/api/health");
+            Assert.Equal(HttpStatusCode.OK, corruptRes.StatusCode);
+            var corruptDto = await corruptRes.Content.ReadFromJsonAsync<SystemHealthStatusDto>();
+            Assert.NotNull(corruptDto);
+            Assert.Equal("degraded", corruptDto.Status);
+            Assert.Equal("error", corruptDto.SyncStatus);
+        }
+        finally
+        {
+            if (Directory.Exists(tempVault))
+            {
+                Directory.Delete(tempVault, true);
+            }
+            if (Directory.Exists(tempSyncDir))
+            {
+                Directory.Delete(tempSyncDir, true);
+            }
+        }
+    }
 }

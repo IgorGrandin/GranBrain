@@ -4,7 +4,7 @@ overview: "Publicar o monorepo GranBrain em produção via Docker Compose na VPS
 todos:
   - id: fatia-1-backend-production-security-and-health
     content: "Implementar ProductionConfigurationValidator, SystemHealthStatusDto, guarda em AuthEndpoints.VerifyPassword, ForwardedHeaders/CF-Connecting-IP, CORS restrito, GET /api/health rico e appsettings.Production.json + testes"
-    status: pending
+    status: completed
   - id: fatia-2-docker-cloudflare-nginx-and-rclone-bisync
     content: "Criar backend/Dockerfile, frontend/Dockerfile, docker-compose.yml, .env.example, configs Nginx/Cloudflare Tunnel, script rclone-bisync-loop.sh e setup-vps.sh + testes de infraestrutura"
     status: pending

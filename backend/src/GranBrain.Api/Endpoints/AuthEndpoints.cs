@@ -57,14 +57,24 @@ public static class AuthEndpoints
         return Convert.ToHexString(bytes);
     }
 
-    private static bool VerifyPassword(string inputPassword, AuthOptions auth)
+    public static bool VerifyPassword(string inputPassword, AuthOptions auth)
     {
+        if (string.IsNullOrWhiteSpace(inputPassword) || auth is null)
+        {
+            return false;
+        }
+
         if (!string.IsNullOrWhiteSpace(auth.PasswordHash))
         {
             var inputHash = ComputeSha256Hash(inputPassword);
             return CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(inputHash.ToUpperInvariant()),
                 Encoding.UTF8.GetBytes(auth.PasswordHash.Trim().ToUpperInvariant()));
+        }
+
+        if (string.IsNullOrWhiteSpace(auth.DefaultPassword))
+        {
+            return false;
         }
 
         return CryptographicOperations.FixedTimeEquals(

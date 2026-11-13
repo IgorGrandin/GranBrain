@@ -5,6 +5,9 @@ public sealed class GranBrainOptions
     public const string SectionName = "GranBrain";
 
     public string VaultPath { get; set; } = @"G:\Meu Drive\Softwares\Obsidian\Igor Grandin";
+    public string SyncStatusFilePath { get; set; } = string.Empty;
+    public string TunnelMode { get; set; } = "local";
+    public string[] AllowedOrigins { get; set; } = [];
     public AuthOptions Auth { get; set; } = new();
     public CliOptions Cli { get; set; } = new();
 }
