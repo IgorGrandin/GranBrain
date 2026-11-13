@@ -4,7 +4,7 @@ overview: "Implementa a esteira completa de ideação no GranBrain (Fleeting -> 
 todos:
   - id: fatia-1-backend-vault-ideas-engine
     content: "Fatia 1: Contratos de Ideias/Brainstorming, bootstrap de templates e central Dataview no VaultInitializer, e motor completo em ObsidianVaultService (Fleeting, Brainstorm, Promote, Overview) + testes unitários"
-    status: pending
+    status: completed
   - id: fatia-2-api-endpoints-and-orchestrator
     content: "Fatia 2: Endpoints HTTP (/api/vault/ideas/fleeting, /brainstorm, /promote, /overview), tratamento de erros 400/404 e integração socrática no AgentOrchestratorService (blocos idea-capture e brainstorm-canvas) + testes de integração HTTP"
     status: pending

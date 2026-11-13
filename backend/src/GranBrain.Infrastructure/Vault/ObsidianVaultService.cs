@@ -355,6 +355,632 @@ public sealed class ObsidianVaultService : IVaultService
         return results;
     }
 
+    public async Task<IdeaItemDto> CaptureFleetingIdeaAsync(FleetingIdeaCaptureRequest request, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Text))
+        {
+            throw new VaultValidationException("idea_text_required", "O texto da ideia é obrigatório.");
+        }
+
+        var rawTarget = request.Target?.Trim();
+        if (!string.IsNullOrWhiteSpace(rawTarget) &&
+            (rawTarget.Contains("..", StringComparison.Ordinal) ||
+             rawTarget.Contains('/', StringComparison.Ordinal) ||
+             rawTarget.Contains('\\', StringComparison.Ordinal) ||
+             Path.IsPathRooted(rawTarget)))
+        {
+            _guard.ResolveSafePath(rawTarget);
+        }
+
+        await _initializer.EnsureInitializedAsync(ct);
+
+        var text = request.Text.Trim();
+        var id = $"idea-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6]}";
+        var time = DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture);
+        var target = (rawTarget ?? "fleeting").ToLowerInvariant();
+        var links = request.Links?.Where(l => !string.IsNullOrWhiteSpace(l)).Select(l => l.Trim()).ToList()
+            ?? new List<string>();
+
+        if (string.Equals(target, "inbox", StringComparison.OrdinalIgnoreCase))
+        {
+            var safeTitle = SanitizeFileName(text.Length > 60 ? text[..60] : text);
+            var relativePath = $"inbox/{safeTitle}.md";
+            var fullPath = _guard.ResolveSafePath(relativePath);
+            if (File.Exists(fullPath))
+            {
+                relativePath = $"inbox/{safeTitle}-{id[^6..]}.md";
+                fullPath = _guard.ResolveSafePath(relativePath);
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+
+            var tags = new List<string> { "fleeting", "inbox" };
+            if (request.Tags is not null)
+            {
+                foreach (var t in request.Tags.Where(x => !string.IsNullOrWhiteSpace(x)))
+                {
+                    var clean = t.Trim().TrimStart('#');
+                    if (!tags.Contains(clean, StringComparer.OrdinalIgnoreCase))
+                    {
+                        tags.Add(clean);
+                    }
+                }
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLine("---");
+            sb.AppendLine($"id: \"{id}\"");
+            sb.AppendLine("type: fleeting");
+            sb.AppendLine("status: fleeting");
+            sb.AppendLine($"created: \"{DateTime.Now:yyyy-MM-dd HH:mm}\"");
+            sb.AppendLine("tags:");
+            foreach (var tag in tags)
+            {
+                sb.AppendLine($"  - {tag}");
+            }
+            sb.AppendLine("---");
+            sb.AppendLine();
+            sb.AppendLine($"# {text}");
+            sb.AppendLine();
+            sb.AppendLine(text);
+            sb.AppendLine();
+            sb.AppendLine("## Conexões");
+            sb.AppendLine("- [[Fleeting]]");
+            foreach (var link in links)
+            {
+                sb.AppendLine($"- [[{link}]]");
+            }
+
+            await File.WriteAllTextAsync(fullPath, sb.ToString(), Encoding.UTF8, ct);
+            return new IdeaItemDto(id, text, time, "fleeting", relativePath, links);
+        }
+
+        var fleetingPath = _guard.ResolveSafePath(Path.Combine("zettelkasten", "Fleeting.md"));
+        var existingRaw = File.Exists(fleetingPath)
+            ? await File.ReadAllTextAsync(fleetingPath, Encoding.UTF8, ct)
+            : string.Empty;
+        var sanitized = VaultInitializer.SanitizeTemplateFrontmatter("Fleeting.md", existingRaw);
+        var lines = sanitized.Replace("\r\n", "\n").Split('\n').ToList();
+
+        var linksSuffix = links.Count > 0
+            ? " " + string.Join(" ", links.Select(l => $"[[{l}]]"))
+            : string.Empty;
+        var entryLine = $"- <!-- id:{id} | status:fleeting --> **{time}** — {text}{linksSuffix}";
+
+        var headerIndex = lines.FindIndex(l => l.Trim().StartsWith("#### Ideias Rápidas", StringComparison.OrdinalIgnoreCase));
+        if (headerIndex < 0)
+        {
+            if (lines.Count > 0 && !string.IsNullOrWhiteSpace(lines[^1]))
+            {
+                lines.Add(string.Empty);
+            }
+            lines.Add("#### Ideias Rápidas");
+            lines.Add(entryLine);
+        }
+        else
+        {
+            var insertAt = headerIndex + 1;
+            while (insertAt < lines.Count && !lines[insertAt].TrimStart().StartsWith("#", StringComparison.Ordinal))
+            {
+                insertAt++;
+            }
+
+            while (insertAt > headerIndex + 1 && string.IsNullOrWhiteSpace(lines[insertAt - 1]))
+            {
+                insertAt--;
+            }
+
+            lines.Insert(insertAt, entryLine);
+        }
+
+        await File.WriteAllTextAsync(fleetingPath, string.Join("\n", lines), Encoding.UTF8, ct);
+        return new IdeaItemDto(id, text, time, "fleeting", "zettelkasten/Fleeting.md", links);
+    }
+
+    public async Task<BrainstormSessionDto> StartBrainstormSessionAsync(BrainstormStartRequest request, CancellationToken ct = default)
+    {
+        await _initializer.EnsureInitializedAsync(ct);
+
+        IdeaItemDto? targetIdea = null;
+        if (!string.IsNullOrWhiteSpace(request.IdeaId))
+        {
+            var allIdeas = await LoadAllIdeasAsync(ct);
+            targetIdea = allIdeas.FirstOrDefault(i => string.Equals(i.Id, request.IdeaId.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (targetIdea is null)
+            {
+                throw new VaultEntityNotFoundException("idea_not_found", $"Ideia '{request.IdeaId}' não encontrada.");
+            }
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.IdeaText))
+            {
+                throw new VaultValidationException("idea_text_required", "Informe ideaId ou ideaText para iniciar o brainstorming.");
+            }
+
+            targetIdea = await CaptureFleetingIdeaAsync(new FleetingIdeaCaptureRequest(request.IdeaText, "fleeting"), ct);
+        }
+
+        var safeTitle = SanitizeFileName(targetIdea.Text.Length > 60 ? targetIdea.Text[..60] : targetIdea.Text);
+        var noteRelativePath = $"zettelkasten/Brainstorming - {safeTitle}.md";
+        var noteFullPath = _guard.ResolveSafePath(noteRelativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(noteFullPath)!);
+
+        var problem = string.IsNullOrWhiteSpace(request.Problem)
+            ? $"Qual dor real e recorrente '{targetIdea.Text}' resolve e quem sofre com ela hoje?"
+            : request.Problem.Trim();
+
+        var hypotheses = request.Hypotheses is { Count: > 0 }
+            ? request.Hypotheses.ToList()
+            : new List<BrainstormHypothesisDto>
+            {
+                new($"A proposta '{targetIdea.Text}' reduz atrito imediato no fluxo diário.", "alta"),
+                new("O valor percebido justifica uso recorrente semanal.", "média"),
+                new("Expansões secundárias podem ser adiadas sem perda de valor.", "baixa")
+            };
+
+        var risks = request.Risks is { Count: > 0 }
+            ? request.Risks.ToList()
+            : new List<BrainstormRiskDto>
+            {
+                new("Complexidade operacional maior do que o benefício inicial.", "alto"),
+                new("Falta de métrica objetiva para validar adoção.", "médio"),
+                new("Dependência de ajustes manuais esporádicos.", "baixo")
+            };
+
+        var socraticQuestion = string.IsNullOrWhiteSpace(request.SocraticQuestion)
+            ? "Qual evidência concreta faria você descartar esta ideia ainda hoje?"
+            : request.SocraticQuestion.Trim();
+
+        var sb = new StringBuilder();
+        sb.AppendLine("---");
+        sb.AppendLine($"id: \"{targetIdea.Id}\"");
+        sb.AppendLine("type: brainstorming");
+        sb.AppendLine("status: em_analise");
+        sb.AppendLine("origem: fleeting");
+        sb.AppendLine($"source_path: \"{targetIdea.SourcePath}\"");
+        sb.AppendLine($"projeto: \"{(request.Project ?? string.Empty).Replace("\"", "'")}\"");
+        sb.AppendLine($"created: \"{DateTime.Now:yyyy-MM-dd HH:mm}\"");
+        sb.AppendLine("tags:");
+        sb.AppendLine("  - brainstorming");
+        sb.AppendLine("---");
+        sb.AppendLine();
+        sb.AppendLine($"# Brainstorming — {targetIdea.Text}");
+        sb.AppendLine();
+        sb.AppendLine("## Origem");
+        sb.AppendLine("- [[Fleeting]]");
+        if (targetIdea.SourcePath.StartsWith("inbox/", StringComparison.OrdinalIgnoreCase))
+        {
+            sb.AppendLine($"- [[inbox]] / [[{Path.GetFileNameWithoutExtension(targetIdea.SourcePath)}]]");
+        }
+        sb.AppendLine();
+        sb.AppendLine("## Problema");
+        sb.AppendLine(problem);
+        sb.AppendLine();
+        sb.AppendLine("## Hipóteses");
+        foreach (var hyp in hypotheses)
+        {
+            sb.AppendLine($"- [{hyp.Confidence}] {hyp.Text}");
+        }
+        sb.AppendLine();
+        sb.AppendLine("## Riscos levantados");
+        foreach (var risk in risks)
+        {
+            sb.AppendLine($"- [{risk.Severity}] {risk.Text}");
+        }
+        sb.AppendLine();
+        sb.AppendLine("## Grilling Socrático");
+        sb.AppendLine($"**Pergunta:** {socraticQuestion}");
+        sb.AppendLine();
+        sb.AppendLine("## Veredicto");
+        sb.AppendLine("- [ ] **Promover a Conceito:** [[Permanente]]");
+        sb.AppendLine("- [ ] **Promover a Projeto:** [[Projetos]]");
+        sb.AppendLine("- [ ] **Descartar**");
+
+        await File.WriteAllTextAsync(noteFullPath, sb.ToString(), Encoding.UTF8, ct);
+        await UpdateIdeaStatusInSourceAsync(targetIdea, "brainstorm", ct);
+
+        var updatedIdea = targetIdea with { Status = "brainstorm" };
+        return new BrainstormSessionDto(
+            updatedIdea,
+            noteRelativePath,
+            problem,
+            hypotheses,
+            risks,
+            socraticQuestion,
+            null);
+    }
+
+    public async Task<IdeaPromotionResultDto> PromoteIdeaAsync(IdeaPromoteRequest request, CancellationToken ct = default)
+    {
+        var normalizedTarget = (request.Target ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalizedTarget is not ("permanente" or "projeto" or "descartada"))
+        {
+            throw new VaultValidationException(
+                "invalid_promotion_target",
+                $"Destino de promoção inválido: '{request.Target}'. Use 'permanente', 'projeto' ou 'descartada'.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.IdeaId))
+        {
+            throw new VaultEntityNotFoundException("idea_not_found", "O identificador da ideia é obrigatório.");
+        }
+
+        var allIdeas = await LoadAllIdeasAsync(ct);
+        var idea = allIdeas.FirstOrDefault(i => string.Equals(i.Id, request.IdeaId.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (idea is null)
+        {
+            throw new VaultEntityNotFoundException("idea_not_found", $"Ideia '{request.IdeaId}' não encontrada.");
+        }
+
+        await _initializer.EnsureInitializedAsync(ct);
+
+        var safeTitle = SanitizeFileName(idea.Text.Length > 60 ? idea.Text[..60] : idea.Text);
+        var newStatus = normalizedTarget == "descartada" ? "descartada" : "promovida";
+        var brainstormPath = _guard.ResolveSafePath(Path.Combine("zettelkasten", $"Brainstorming - {safeTitle}.md"));
+
+        await UpdateIdeaStatusInSourceAsync(idea, newStatus, ct);
+        if (File.Exists(brainstormPath))
+        {
+            await UpdateBrainstormVerdictAsync(brainstormPath, normalizedTarget, request.SocraticAnswer, ct);
+        }
+
+        string? targetPath = null;
+        if (normalizedTarget == "permanente")
+        {
+            var permanentePath = _guard.ResolveSafePath(Path.Combine("zettelkasten", "Permanente.md"));
+            var permRaw = File.Exists(permanentePath)
+                ? await File.ReadAllTextAsync(permanentePath, Encoding.UTF8, ct)
+                : string.Empty;
+            var permSanitized = VaultInitializer.SanitizeTemplateFrontmatter("Permanente.md", permRaw);
+            var wikiLink = $"[[{safeTitle}]]";
+
+            if (!permSanitized.Contains(wikiLink, StringComparison.OrdinalIgnoreCase))
+            {
+                var permLines = permSanitized.Replace("\r\n", "\n").Split('\n').ToList();
+                var headerIdx = permLines.FindIndex(l => l.Trim().StartsWith("#### Ideias Maduras", StringComparison.OrdinalIgnoreCase));
+                if (headerIdx < 0)
+                {
+                    if (permLines.Count > 0 && !string.IsNullOrWhiteSpace(permLines[^1]))
+                    {
+                        permLines.Add(string.Empty);
+                    }
+                    permLines.Add("#### Ideias Maduras");
+                    permLines.Add($"- {wikiLink}");
+                }
+                else
+                {
+                    var insertAt = headerIdx + 1;
+                    while (insertAt < permLines.Count && !permLines[insertAt].TrimStart().StartsWith("#", StringComparison.Ordinal))
+                    {
+                        insertAt++;
+                    }
+                    while (insertAt > headerIdx + 1 && string.IsNullOrWhiteSpace(permLines[insertAt - 1]))
+                    {
+                        insertAt--;
+                    }
+                    permLines.Insert(insertAt, $"- {wikiLink}");
+                }
+
+                await File.WriteAllTextAsync(permanentePath, string.Join("\n", permLines), Encoding.UTF8, ct);
+            }
+            else if (!string.Equals(permRaw, permSanitized, StringComparison.Ordinal))
+            {
+                await File.WriteAllTextAsync(permanentePath, permSanitized, Encoding.UTF8, ct);
+            }
+
+            targetPath = $"zettelkasten/{safeTitle}.md";
+            var atomicFullPath = _guard.ResolveSafePath(targetPath);
+            var summary = string.IsNullOrWhiteSpace(request.Summary) ? idea.Text : request.Summary.Trim();
+            var atomicSb = new StringBuilder();
+            atomicSb.AppendLine("---");
+            atomicSb.AppendLine("type: permanente");
+            atomicSb.AppendLine("status: promovida");
+            atomicSb.AppendLine($"created: \"{DateTime.Now:yyyy-MM-dd HH:mm}\"");
+            atomicSb.AppendLine("tags:");
+            atomicSb.AppendLine("  - permanente");
+            atomicSb.AppendLine("  - zettelkasten");
+            atomicSb.AppendLine("---");
+            atomicSb.AppendLine();
+            atomicSb.AppendLine($"# {idea.Text}");
+            atomicSb.AppendLine();
+            atomicSb.AppendLine(summary);
+            if (!string.IsNullOrWhiteSpace(request.SocraticAnswer))
+            {
+                atomicSb.AppendLine();
+                atomicSb.AppendLine("## Síntese Socrática");
+                atomicSb.AppendLine(request.SocraticAnswer.Trim());
+            }
+            atomicSb.AppendLine();
+            atomicSb.AppendLine("## Conexões");
+            atomicSb.AppendLine("- [[Fleeting]]");
+            atomicSb.AppendLine("- [[Permanente]]");
+            if (File.Exists(brainstormPath))
+            {
+                atomicSb.AppendLine($"- [[Brainstorming - {safeTitle}]]");
+            }
+
+            await File.WriteAllTextAsync(atomicFullPath, atomicSb.ToString(), Encoding.UTF8, ct);
+        }
+        else if (normalizedTarget == "projeto")
+        {
+            targetPath = $"zettelkasten/Projeto - {safeTitle}.md";
+            var projectFullPath = _guard.ResolveSafePath(targetPath);
+            var area = string.IsNullOrWhiteSpace(request.Area) ? "profissional" : request.Area.Trim();
+            var summary = string.IsNullOrWhiteSpace(request.Summary) ? idea.Text : request.Summary.Trim();
+
+            var projSb = new StringBuilder();
+            projSb.AppendLine("---");
+            projSb.AppendLine("type: projeto");
+            projSb.AppendLine("status: ativo");
+            projSb.AppendLine($"area: \"{area.Replace("\"", "'")}\"");
+            projSb.AppendLine($"created: \"{DateTime.Now:yyyy-MM-dd HH:mm}\"");
+            projSb.AppendLine("tags:");
+            projSb.AppendLine("  - projeto");
+            projSb.AppendLine("---");
+            projSb.AppendLine();
+            projSb.AppendLine($"# Projeto — {idea.Text}");
+            projSb.AppendLine();
+            projSb.AppendLine("## Objetivo");
+            projSb.AppendLine(summary);
+            if (!string.IsNullOrWhiteSpace(request.SocraticAnswer))
+            {
+                projSb.AppendLine();
+                projSb.AppendLine("## Síntese Socrática");
+                projSb.AppendLine(request.SocraticAnswer.Trim());
+            }
+            projSb.AppendLine();
+            projSb.AppendLine("## Conexões");
+            projSb.AppendLine("- [[Fleeting]]");
+            projSb.AppendLine("- [[Brainstorming]]");
+            if (File.Exists(brainstormPath))
+            {
+                projSb.AppendLine($"- [[Brainstorming - {safeTitle}]]");
+            }
+
+            await File.WriteAllTextAsync(projectFullPath, projSb.ToString(), Encoding.UTF8, ct);
+        }
+
+        var updatedIdea = idea with { Status = newStatus };
+        return new IdeaPromotionResultDto(updatedIdea, idea.SourcePath, targetPath, newStatus);
+    }
+
+    public async Task<IdeasOverviewDto> GetIdeasOverviewAsync(CancellationToken ct = default)
+    {
+        await _initializer.EnsureInitializedAsync(ct);
+
+        var ideas = await LoadAllIdeasAsync(ct);
+        var activeSession = await LoadLatestBrainstormSessionAsync(ideas, ct);
+
+        return new IdeasOverviewDto(
+            Ideas: ideas,
+            FleetingCount: ideas.Count(i => string.Equals(i.Status, "fleeting", StringComparison.OrdinalIgnoreCase)),
+            BrainstormCount: ideas.Count(i => string.Equals(i.Status, "brainstorm", StringComparison.OrdinalIgnoreCase)),
+            PromotedCount: ideas.Count(i => string.Equals(i.Status, "promovida", StringComparison.OrdinalIgnoreCase)),
+            DiscardedCount: ideas.Count(i => string.Equals(i.Status, "descartada", StringComparison.OrdinalIgnoreCase)),
+            ActiveSession: activeSession);
+    }
+
+    private async Task<List<IdeaItemDto>> LoadAllIdeasAsync(CancellationToken ct)
+    {
+        var ideas = new List<IdeaItemDto>();
+        var fleetingPath = _guard.ResolveSafePath(Path.Combine("zettelkasten", "Fleeting.md"));
+        if (File.Exists(fleetingPath))
+        {
+            var lines = await File.ReadAllLinesAsync(fleetingPath, Encoding.UTF8, ct);
+            var inSection = false;
+            var lineIdx = 0;
+            foreach (var rawLine in lines)
+            {
+                lineIdx++;
+                var trimmed = rawLine.Trim();
+                if (trimmed.StartsWith("#### Ideias Rápidas", StringComparison.OrdinalIgnoreCase))
+                {
+                    inSection = true;
+                    continue;
+                }
+                if (inSection && trimmed.StartsWith("#", StringComparison.Ordinal))
+                {
+                    inSection = false;
+                }
+
+                if (!trimmed.StartsWith("-", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var metaMatch = Regex.Match(
+                    trimmed,
+                    @"^-\s*<!--\s*id:(?<id>[^\s|]+)\s*\|\s*status:(?<status>[a-z_]+)\s*-->\s*\*\*(?<time>\d{2}:\d{2})\*\*\s*[—-]\s*(?<rest>.+)$");
+                if (metaMatch.Success)
+                {
+                    var rest = metaMatch.Groups["rest"].Value.Trim();
+                    var links = Regex.Matches(rest, @"\[\[([^\]]+)\]\]").Select(m => m.Groups[1].Value).ToList();
+                    var cleanText = Regex.Replace(rest, @"\s*\[\[[^\]]+\]\]", string.Empty).Trim();
+                    ideas.Add(new IdeaItemDto(
+                        metaMatch.Groups["id"].Value.Trim(),
+                        cleanText,
+                        metaMatch.Groups["time"].Value.Trim(),
+                        metaMatch.Groups["status"].Value.Trim(),
+                        "zettelkasten/Fleeting.md",
+                        links));
+                }
+                else if (inSection)
+                {
+                    var plain = trimmed[1..].Trim();
+                    if (!string.IsNullOrWhiteSpace(plain))
+                    {
+                        ideas.Add(new IdeaItemDto(
+                            $"legacy-fleeting-{lineIdx}",
+                            plain,
+                            "--:--",
+                            "fleeting",
+                            "zettelkasten/Fleeting.md"));
+                    }
+                }
+            }
+        }
+
+        var inboxDir = _guard.ResolveSafePath("inbox");
+        if (Directory.Exists(inboxDir))
+        {
+            foreach (var file in Directory.EnumerateFiles(inboxDir, "*.md", SearchOption.TopDirectoryOnly)
+                         .OrderByDescending(File.GetLastWriteTimeUtc))
+            {
+                var content = await File.ReadAllTextAsync(file, Encoding.UTF8, ct);
+                var normalized = content.Replace("\r\n", "\n");
+                var idMatch = Regex.Match(normalized, @"^id:\s*""?(?<id>[^""\n]+)""?", RegexOptions.Multiline);
+                var typeMatch = Regex.Match(normalized, @"^type:\s*(?<type>[a-z_]+)", RegexOptions.Multiline);
+                if (!idMatch.Success && !string.Equals(typeMatch.Groups["type"].Value, "fleeting", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var statusMatch = Regex.Match(normalized, @"^status:\s*(?<status>[a-z_]+)", RegexOptions.Multiline);
+                var createdMatch = Regex.Match(normalized, @"^created:\s*""?(?<created>[^""\n]+)""?", RegexOptions.Multiline);
+                var headingMatch = Regex.Match(normalized, @"^#\s+(?<title>.+)$", RegexOptions.Multiline);
+
+                var id = idMatch.Success ? idMatch.Groups["id"].Value.Trim() : $"inbox-{Path.GetFileNameWithoutExtension(file)}";
+                var status = statusMatch.Success ? statusMatch.Groups["status"].Value.Trim() : "fleeting";
+                var text = headingMatch.Success ? headingMatch.Groups["title"].Value.Trim() : Path.GetFileNameWithoutExtension(file);
+                var time = createdMatch.Success && createdMatch.Groups["created"].Value.Length >= 5
+                    ? createdMatch.Groups["created"].Value.Trim()[^5..]
+                    : "--:--";
+                var relPath = Path.GetRelativePath(_guard.VaultRoot, file).Replace('\\', '/');
+
+                ideas.Add(new IdeaItemDto(id, text, time, status, relPath));
+            }
+        }
+
+        return ideas;
+    }
+
+    private async Task UpdateIdeaStatusInSourceAsync(IdeaItemDto idea, string newStatus, CancellationToken ct)
+    {
+        var fullPath = _guard.ResolveSafePath(idea.SourcePath);
+        if (!File.Exists(fullPath))
+        {
+            return;
+        }
+
+        var content = await File.ReadAllTextAsync(fullPath, Encoding.UTF8, ct);
+        if (idea.SourcePath.Equals("zettelkasten/Fleeting.md", StringComparison.OrdinalIgnoreCase))
+        {
+            var pattern = $@"(<!--\s*id:{Regex.Escape(idea.Id)}\s*\|\s*status:)[a-z_]+(\s*-->)";
+            var updated = Regex.Replace(content, pattern, $"${{1}}{newStatus}${{2}}");
+            if (!string.Equals(content, updated, StringComparison.Ordinal))
+            {
+                await File.WriteAllTextAsync(fullPath, updated, Encoding.UTF8, ct);
+            }
+        }
+        else
+        {
+            var updated = Regex.IsMatch(content, @"^status:\s*[a-z_]+", RegexOptions.Multiline)
+                ? Regex.Replace(content, @"^(status:\s*)[a-z_]+", $"$1{newStatus}", RegexOptions.Multiline)
+                : content;
+            if (!string.Equals(content, updated, StringComparison.Ordinal))
+            {
+                await File.WriteAllTextAsync(fullPath, updated, Encoding.UTF8, ct);
+            }
+        }
+    }
+
+    private async Task UpdateBrainstormVerdictAsync(string brainstormFullPath, string target, string? socraticAnswer, CancellationToken ct)
+    {
+        var content = (await File.ReadAllTextAsync(brainstormFullPath, Encoding.UTF8, ct)).Replace("\r\n", "\n");
+        var statusValue = target == "descartada" ? "descartada" : "promovida";
+        content = Regex.Replace(content, @"^(status:\s*)[a-z_]+", $"$1{statusValue}", RegexOptions.Multiline);
+
+        if (target == "permanente")
+        {
+            content = content.Replace("- [ ] **Promover a Conceito:**", "- [x] **Promover a Conceito:**");
+        }
+        else if (target == "projeto")
+        {
+            content = content.Replace("- [ ] **Promover a Projeto:**", "- [x] **Promover a Projeto:**");
+        }
+        else if (target == "descartada")
+        {
+            content = content.Replace("- [ ] **Descartar**", "- [x] **Descartar**");
+        }
+
+        if (!string.IsNullOrWhiteSpace(socraticAnswer) && !content.Contains("**Resposta:**", StringComparison.Ordinal))
+        {
+            content = Regex.Replace(
+                content,
+                @"(\*\*Pergunta:\*\*[^\n]*)",
+                $"$1\n**Resposta:** {socraticAnswer.Trim()}");
+        }
+
+        await File.WriteAllTextAsync(brainstormFullPath, content, Encoding.UTF8, ct);
+    }
+
+    private async Task<BrainstormSessionDto?> LoadLatestBrainstormSessionAsync(IReadOnlyList<IdeaItemDto> ideas, CancellationToken ct)
+    {
+        var zettelDir = _guard.ResolveSafePath("zettelkasten");
+        if (!Directory.Exists(zettelDir))
+        {
+            return null;
+        }
+
+        var files = Directory.EnumerateFiles(zettelDir, "Brainstorming - *.md", SearchOption.TopDirectoryOnly)
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .ToList();
+
+        if (files.Count == 0)
+        {
+            return null;
+        }
+
+        string? selectedFile = null;
+        string? selectedContent = null;
+        foreach (var file in files)
+        {
+            var raw = (await File.ReadAllTextAsync(file, Encoding.UTF8, ct)).Replace("\r\n", "\n");
+            if (Regex.IsMatch(raw, @"^status:\s*em_analise", RegexOptions.Multiline))
+            {
+                selectedFile = file;
+                selectedContent = raw;
+                break;
+            }
+        }
+
+        selectedFile ??= files[0];
+        selectedContent ??= (await File.ReadAllTextAsync(selectedFile, Encoding.UTF8, ct)).Replace("\r\n", "\n");
+
+        var idMatch = Regex.Match(selectedContent, @"^id:\s*""?(?<id>[^""\n]+)""?", RegexOptions.Multiline);
+        var ideaId = idMatch.Success ? idMatch.Groups["id"].Value.Trim() : Path.GetFileNameWithoutExtension(selectedFile);
+        var matchedIdea = ideas.FirstOrDefault(i => string.Equals(i.Id, ideaId, StringComparison.OrdinalIgnoreCase))
+            ?? new IdeaItemDto(ideaId, Path.GetFileNameWithoutExtension(selectedFile).Replace("Brainstorming - ", string.Empty), "--:--", "brainstorm", Path.GetRelativePath(_guard.VaultRoot, selectedFile).Replace('\\', '/'));
+
+        var problem = ExtractSectionBody(selectedContent, "## Problema");
+        var hypotheses = Regex.Matches(ExtractSectionBody(selectedContent, "## Hipóteses"), @"^-\s*\[(?<conf>[^\]]+)\]\s*(?<text>.+)$", RegexOptions.Multiline)
+            .Select(m => new BrainstormHypothesisDto(m.Groups["text"].Value.Trim(), m.Groups["conf"].Value.Trim()))
+            .ToList();
+        var risks = Regex.Matches(ExtractSectionBody(selectedContent, "## Riscos levantados"), @"^-\s*\[(?<sev>[^\]]+)\]\s*(?<text>.+)$", RegexOptions.Multiline)
+            .Select(m => new BrainstormRiskDto(m.Groups["text"].Value.Trim(), m.Groups["sev"].Value.Trim()))
+            .ToList();
+
+        var qMatch = Regex.Match(selectedContent, @"\*\*Pergunta:\*\*\s*(?<q>.+)$", RegexOptions.Multiline);
+        var aMatch = Regex.Match(selectedContent, @"\*\*Resposta:\*\*\s*(?<a>.+)$", RegexOptions.Multiline);
+
+        return new BrainstormSessionDto(
+            matchedIdea,
+            Path.GetRelativePath(_guard.VaultRoot, selectedFile).Replace('\\', '/'),
+            problem,
+            hypotheses,
+            risks,
+            qMatch.Success ? qMatch.Groups["q"].Value.Trim() : string.Empty,
+            aMatch.Success ? aMatch.Groups["a"].Value.Trim() : null);
+    }
+
+    private static string ExtractSectionBody(string markdown, string heading)
+    {
+        var pattern = $@"{Regex.Escape(heading)}\n(?<body>[\s\S]*?)(?=\n##\s|$)";
+        var match = Regex.Match(markdown, pattern);
+        return match.Success ? match.Groups["body"].Value.Trim() : string.Empty;
+    }
+
     private string ResolveKanbanBoardPath(string boardName)
     {
         if (boardName.Contains("..", StringComparison.Ordinal) ||

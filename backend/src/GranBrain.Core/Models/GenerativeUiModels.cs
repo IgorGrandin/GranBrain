@@ -7,6 +7,8 @@ public static class GenerativeUiBlockTypes
     public const string KanbanBoard = "kanban-board";
     public const string DynamicForm = "dynamic-form";
     public const string MarkdownNoteList = "markdown-note-list";
+    public const string IdeaCapture = "idea-capture";
+    public const string BrainstormCanvas = "brainstorm-canvas";
 }
 
 public sealed record KpiMetricItemDto(
@@ -39,7 +41,8 @@ public sealed record GenerativeUiBlock(
     IReadOnlyList<HabitItemDto>? Habits = null,
     KanbanBoardDto? Kanban = null,
     DynamicFormSchemaDto? Form = null,
-    IReadOnlyList<VaultNoteSummaryDto>? Notes = null);
+    IReadOnlyList<VaultNoteSummaryDto>? Notes = null,
+    IdeasOverviewDto? IdeasOverview = null);
 
 public sealed record AiProviderStatusDto(
     string Id,

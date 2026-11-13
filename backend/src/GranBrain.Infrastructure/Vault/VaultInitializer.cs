@@ -50,18 +50,70 @@ public sealed class VaultInitializer
 
         var sanitized = new List<string>();
         var templatesDir = _guard.ResolveSafePath("templates");
-        if (Directory.Exists(templatesDir))
+        Directory.CreateDirectory(templatesDir);
+
+        var brainstormingTemplatePath = _guard.ResolveSafePath(Path.Combine("templates", "Brainstorming.md"));
+        if (!File.Exists(brainstormingTemplatePath))
         {
-            foreach (var file in Directory.EnumerateFiles(templatesDir, "*.md", SearchOption.TopDirectoryOnly))
+            await File.WriteAllTextAsync(brainstormingTemplatePath, BuildBrainstormingTemplateMarkdown(), Encoding.UTF8, ct);
+        }
+
+        var projetosTemplatePath = _guard.ResolveSafePath(Path.Combine("templates", "Projetos.md"));
+        if (!File.Exists(projetosTemplatePath))
+        {
+            await File.WriteAllTextAsync(projetosTemplatePath, BuildProjetosTemplateMarkdown(), Encoding.UTF8, ct);
+        }
+
+        foreach (var file in Directory.EnumerateFiles(templatesDir, "*.md", SearchOption.TopDirectoryOnly))
+        {
+            var content = await File.ReadAllTextAsync(file, Encoding.UTF8, ct);
+            var updated = SanitizeTemplateFrontmatter(Path.GetFileName(file), content);
+            if (!string.Equals(content, updated, StringComparison.Ordinal))
             {
-                var content = await File.ReadAllTextAsync(file, Encoding.UTF8, ct);
-                var updated = SanitizeTemplateFrontmatter(Path.GetFileName(file), content);
-                if (!string.Equals(content, updated, StringComparison.Ordinal))
-                {
-                    await File.WriteAllTextAsync(file, updated, Encoding.UTF8, ct);
-                    sanitized.Add(Path.GetFileName(file));
-                }
+                await File.WriteAllTextAsync(file, updated, Encoding.UTF8, ct);
+                sanitized.Add(Path.GetFileName(file));
             }
+        }
+
+        var zettelDir = _guard.ResolveSafePath("zettelkasten");
+        Directory.CreateDirectory(zettelDir);
+
+        var fleetingPath = _guard.ResolveSafePath(Path.Combine("zettelkasten", "Fleeting.md"));
+        if (!File.Exists(fleetingPath))
+        {
+            await File.WriteAllTextAsync(fleetingPath, BuildFleetingMarkdown(), Encoding.UTF8, ct);
+        }
+        else
+        {
+            var fleetingContent = await File.ReadAllTextAsync(fleetingPath, Encoding.UTF8, ct);
+            var sanitizedFleeting = SanitizeTemplateFrontmatter("Fleeting.md", fleetingContent);
+            if (!string.Equals(fleetingContent.Replace("\r\n", "\n"), sanitizedFleeting, StringComparison.Ordinal))
+            {
+                await File.WriteAllTextAsync(fleetingPath, sanitizedFleeting, Encoding.UTF8, ct);
+                sanitized.Add("zettelkasten/Fleeting.md");
+            }
+        }
+
+        var permanentePath = _guard.ResolveSafePath(Path.Combine("zettelkasten", "Permanente.md"));
+        if (!File.Exists(permanentePath))
+        {
+            await File.WriteAllTextAsync(permanentePath, BuildPermanenteMarkdown(), Encoding.UTF8, ct);
+        }
+        else
+        {
+            var permContent = await File.ReadAllTextAsync(permanentePath, Encoding.UTF8, ct);
+            var sanitizedPerm = SanitizeTemplateFrontmatter("Permanente.md", permContent);
+            if (!string.Equals(permContent.Replace("\r\n", "\n"), sanitizedPerm, StringComparison.Ordinal))
+            {
+                await File.WriteAllTextAsync(permanentePath, sanitizedPerm, Encoding.UTF8, ct);
+                sanitized.Add("zettelkasten/Permanente.md");
+            }
+        }
+
+        var brainstormingCentralPath = _guard.ResolveSafePath(Path.Combine("zettelkasten", "Brainstorming.md"));
+        if (!File.Exists(brainstormingCentralPath))
+        {
+            await File.WriteAllTextAsync(brainstormingCentralPath, BuildBrainstormingCentralMarkdown(), Encoding.UTF8, ct);
         }
 
         return new VaultBootstrapResult(createdAgents, createdHome, createdInbox, sanitized);
@@ -170,6 +222,126 @@ public sealed class VaultInitializer
         FROM "daily"
         SORT file.name DESC
         LIMIT 7
+        ```
+        """;
+
+    private static string BuildBrainstormingTemplateMarkdown() => """
+        ---
+        type: brainstorming
+        status: em_analise
+        origem: fleeting
+        projeto: ""
+        created: "{{date:YYYY-MM-DD HH:mm}}"
+        tags:
+          - brainstorming
+        ---
+
+        # Brainstorming — {{title}}
+
+        ## Origem
+        - [[Fleeting]]
+
+        ## Problema
+        Descreva o problema central que esta ideia resolve.
+
+        ## Hipóteses
+        - [alta] Hipótese principal a validar
+
+        ## Riscos levantados
+        - [médio] Risco principal de execução
+
+        ## Grilling Socrático
+        **Pergunta:** Qual evidência real comprova o valor desta ideia?
+
+        ## Veredicto
+        - [ ] **Promover a Conceito:** [[Permanente]]
+        - [ ] **Promover a Projeto:** [[Projetos]]
+        - [ ] **Descartar**
+        """;
+
+    private static string BuildProjetosTemplateMarkdown() => """
+        ---
+        type: projeto
+        status: ativo
+        area: "profissional"
+        created: "{{date:YYYY-MM-DD HH:mm}}"
+        tags:
+          - projeto
+        ---
+
+        # Projeto — {{title}}
+
+        ## Objetivo
+        Definir o escopo executável e os entregáveis do projeto.
+
+        ## Conexões
+        - [[Fleeting]]
+        - [[Brainstorming]]
+        """;
+
+    private static string BuildFleetingMarkdown() => """
+        ---
+        type: fleeting
+        created: "2026-10-29"
+        tags:
+          - fleeting
+          - ideias
+        ---
+
+        # 💡 Fleeting Notes
+
+        #### Ideias Rápidas
+        """;
+
+    private static string BuildPermanenteMarkdown() => """
+        ---
+        type: permanente
+        created: "2026-10-29"
+        tags:
+          - permanente
+          - zettelkasten
+        ---
+
+        # 🧠 Notas Permanentes
+
+        #### Ideias Maduras
+        """;
+
+    private static string BuildBrainstormingCentralMarkdown() => """
+        ---
+        type: brainstorming-central
+        created: "2026-10-29"
+        tags:
+          - brainstorming
+          - dataview
+        ---
+
+        # 🧠 Central de Brainstorming & Ideação
+
+        - [[Fleeting]] | [[Permanente]]
+
+        ## Sessões de Brainstorming
+        ```dataview
+        TABLE status as "Status", projeto as "Projeto", file.mtime as "Atualizado"
+        FROM "zettelkasten"
+        WHERE type = "brainstorming"
+        SORT file.mtime DESC
+        ```
+
+        ## Ideias na Inbox
+        ```dataview
+        TABLE status as "Status", created as "Criado em"
+        FROM "inbox"
+        WHERE type = "fleeting"
+        SORT file.mtime DESC
+        ```
+
+        ## Projetos Promovidos
+        ```dataview
+        TABLE area as "Área", status as "Status", file.mtime as "Atualizado"
+        FROM "zettelkasten"
+        WHERE type = "projeto"
+        SORT file.mtime DESC
         ```
         """;
 }

@@ -77,4 +77,167 @@ public sealed class ObsidianVaultServiceTests
             }
         }
     }
+
+    [Fact]
+    public async Task IdeasPipeline_CapturesFleeting_StartsBrainstorm_AndPromotesPreservingNotesAndBacklinks()
+    {
+        var tempVault = Path.Combine(Path.GetTempPath(), "GranBrainIdeasTest_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tempVault, "zettelkasten"));
+            var fleetingPath = Path.Combine(tempVault, "zettelkasten", "Fleeting.md");
+            await File.WriteAllTextAsync(
+                fleetingPath,
+                "---\ntype: fleeting\n---\n---\n\n#### Ideias Rápidas\n- Software AEVO existente\n",
+                Encoding.UTF8);
+
+            var permanentePath = Path.Combine(tempVault, "zettelkasten", "Permanente.md");
+            await File.WriteAllTextAsync(
+                permanentePath,
+                "---\ntype: permanente\n---\n---\n\n#### Ideias Maduras\n- [[GranFramework]]\n",
+                Encoding.UTF8);
+
+            var guard = new VaultPathGuard(tempVault);
+            var initializer = new VaultInitializer(guard);
+            var service = new ObsidianVaultService(guard, initializer);
+
+            // (a) Capture fleeting preserving existing notes and sanitizing ---
+            var idea1 = await service.CaptureFleetingIdeaAsync(new FleetingIdeaCaptureRequest(
+                Text: "App de leitura com resumos por voz",
+                Target: "fleeting",
+                Links: new[] { "GranBrain" }));
+            Assert.Equal("fleeting", idea1.Status);
+            Assert.Equal("zettelkasten/Fleeting.md", idea1.SourcePath);
+
+            var fleetingContent = await File.ReadAllTextAsync(fleetingPath, Encoding.UTF8);
+            Assert.Contains("- Software AEVO existente", fleetingContent);
+            Assert.DoesNotContain("---\n---", fleetingContent);
+            Assert.Contains("App de leitura com resumos por voz", fleetingContent);
+            Assert.Contains(idea1.Id, fleetingContent);
+
+            // (b) Capture to inbox
+            var idea2 = await service.CaptureFleetingIdeaAsync(new FleetingIdeaCaptureRequest(
+                Text: "Ideia rápida para triagem",
+                Target: "inbox"));
+            Assert.StartsWith("inbox/", idea2.SourcePath);
+            var inboxFullPath = Path.Combine(tempVault, idea2.SourcePath.Replace('/', Path.DirectorySeparatorChar));
+            Assert.True(File.Exists(inboxFullPath));
+            var inboxContent = await File.ReadAllTextAsync(inboxFullPath, Encoding.UTF8);
+            Assert.Contains("type: fleeting", inboxContent);
+            Assert.Contains("status: fleeting", inboxContent);
+            Assert.Contains("[[Fleeting]]", inboxContent);
+
+            // (c) Start brainstorm on idea1
+            var session1 = await service.StartBrainstormSessionAsync(new BrainstormStartRequest(
+                IdeaId: idea1.Id,
+                Problem: "Leitores perdem insights ao ouvir audiolivros sem captura rápida.",
+                Hypotheses: new[]
+                {
+                    new BrainstormHypothesisDto("Resumo por voz reduz fricção em 70%", "alta"),
+                    new BrainstormHypothesisDto("Sincronização direta com Obsidian aumenta retenção", "média"),
+                    new BrainstormHypothesisDto("Gamificação de leitura é essencial", "baixa")
+                },
+                Risks: new[]
+                {
+                    new BrainstormRiskDto("Latência de transcrição offline", "alto"),
+                    new BrainstormRiskDto("Ruído ambiente em trânsito", "médio"),
+                    new BrainstormRiskDto("Tamanho do arquivo de áudio", "baixo")
+                },
+                SocraticQuestion: "Qual evidência real prova que o usuário revisitaria os resumos?"));
+
+            Assert.Equal("brainstorm", session1.Idea.Status);
+            Assert.Equal("zettelkasten/Brainstorming - App de leitura com resumos por voz.md", session1.NotePath);
+            var bsFullPath = Path.Combine(tempVault, session1.NotePath.Replace('/', Path.DirectorySeparatorChar));
+            Assert.True(File.Exists(bsFullPath));
+            var bsContent = await File.ReadAllTextAsync(bsFullPath, Encoding.UTF8);
+            Assert.Contains("type: brainstorming", bsContent);
+            Assert.Contains("status: em_analise", bsContent);
+            Assert.Contains("[[Fleeting]]", bsContent);
+            Assert.Contains("Leitores perdem insights", bsContent);
+            Assert.Contains("Resumo por voz reduz fricção em 70%", bsContent);
+            Assert.Contains("Latência de transcrição offline", bsContent);
+            Assert.Contains("Qual evidência real prova", bsContent);
+
+            // (d) Promote idea1 to permanente twice (idempotency)
+            var promo1 = await service.PromoteIdeaAsync(new IdeaPromoteRequest(
+                IdeaId: idea1.Id,
+                Target: "permanente",
+                Summary: "Conceito validado de captura vocal de resumos.",
+                SocraticAnswer: "Revisão semanal automática no Obsidian."));
+            Assert.Equal("promovida", promo1.Status);
+            await service.PromoteIdeaAsync(new IdeaPromoteRequest(
+                IdeaId: idea1.Id,
+                Target: "permanente"));
+
+            var bsAfterPromo = await File.ReadAllTextAsync(bsFullPath, Encoding.UTF8);
+            Assert.Contains("status: promovida", bsAfterPromo);
+            Assert.Contains("- [x] **Promover a Conceito:**", bsAfterPromo);
+
+            var permContent = await File.ReadAllTextAsync(permanentePath, Encoding.UTF8);
+            Assert.Contains("- [[GranFramework]]", permContent);
+            Assert.DoesNotContain("---\n---", permContent);
+            var linkCount = System.Text.RegularExpressions.Regex.Matches(permContent, @"\[\[App de leitura com resumos por voz\]\]").Count;
+            Assert.Equal(1, linkCount);
+
+            var atomicPermPath = Path.Combine(tempVault, "zettelkasten", "App de leitura com resumos por voz.md");
+            Assert.True(File.Exists(atomicPermPath));
+            var atomicPermContent = await File.ReadAllTextAsync(atomicPermPath, Encoding.UTF8);
+            Assert.Contains("[[Fleeting]]", atomicPermContent);
+            Assert.Contains("[[Permanente]]", atomicPermContent);
+
+            // (e) Brainstorm and promote idea2 to projeto
+            await service.StartBrainstormSessionAsync(new BrainstormStartRequest(IdeaId: idea2.Id));
+            var promo2 = await service.PromoteIdeaAsync(new IdeaPromoteRequest(
+                IdeaId: idea2.Id,
+                Target: "projeto",
+                Area: "profissional"));
+            Assert.Equal("promovida", promo2.Status);
+            Assert.Equal("zettelkasten/Projeto - Ideia rápida para triagem.md", promo2.TargetPath);
+            var projPath = Path.Combine(tempVault, "zettelkasten", "Projeto - Ideia rápida para triagem.md");
+            Assert.True(File.Exists(projPath));
+            var projContent = await File.ReadAllTextAsync(projPath, Encoding.UTF8);
+            Assert.Contains("type: projeto", projContent);
+            Assert.Contains("status: ativo", projContent);
+
+            // (f) Capture idea3 and discard
+            var idea3 = await service.CaptureFleetingIdeaAsync(new FleetingIdeaCaptureRequest("Ideia descartável", "fleeting"));
+            var promo3 = await service.PromoteIdeaAsync(new IdeaPromoteRequest(IdeaId: idea3.Id, Target: "descartada"));
+            Assert.Equal("descartada", promo3.Status);
+            Assert.Null(promo3.TargetPath);
+            Assert.False(File.Exists(Path.Combine(tempVault, "zettelkasten", "Projeto - Ideia descartável.md")));
+            Assert.DoesNotContain("[[Ideia descartável]]", await File.ReadAllTextAsync(permanentePath, Encoding.UTF8));
+
+            // (g) Negative validations
+            var emptyEx = await Assert.ThrowsAsync<VaultValidationException>(() =>
+                service.CaptureFleetingIdeaAsync(new FleetingIdeaCaptureRequest("   ", "fleeting")));
+            Assert.Equal("idea_text_required", emptyEx.ErrorCode);
+
+            var idea4 = await service.CaptureFleetingIdeaAsync(new FleetingIdeaCaptureRequest("Ideia protegida contra mutação", "fleeting"));
+            var invalidTargetEx = await Assert.ThrowsAsync<VaultValidationException>(() =>
+                service.PromoteIdeaAsync(new IdeaPromoteRequest(idea4.Id, "invalido")));
+            Assert.Equal("invalid_promotion_target", invalidTargetEx.ErrorCode);
+
+            var notFoundBsEx = await Assert.ThrowsAsync<VaultEntityNotFoundException>(() =>
+                service.StartBrainstormSessionAsync(new BrainstormStartRequest(IdeaId: "inexistente")));
+            Assert.Equal("idea_not_found", notFoundBsEx.ErrorCode);
+
+            var notFoundPromoEx = await Assert.ThrowsAsync<VaultEntityNotFoundException>(() =>
+                service.PromoteIdeaAsync(new IdeaPromoteRequest("inexistente", "permanente")));
+            Assert.Equal("idea_not_found", notFoundPromoEx.ErrorCode);
+
+            // (h) Overview counts (legacy-fleeting + idea4 = 2 fleeting, 2 promoted, 1 discarded)
+            var overview = await service.GetIdeasOverviewAsync();
+            Assert.Equal(2, overview.PromotedCount);
+            Assert.Equal(1, overview.DiscardedCount);
+            Assert.Equal(2, overview.FleetingCount);
+            Assert.NotNull(overview.ActiveSession);
+        }
+        finally
+        {
+            if (Directory.Exists(tempVault))
+            {
+                Directory.Delete(tempVault, true);
+            }
+        }
+    }
 }

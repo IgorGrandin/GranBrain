@@ -12,4 +12,8 @@ public interface IVaultService
     Task<KanbanBoardDto> MoveKanbanTaskAsync(string boardName, string taskText, string targetColumn, CancellationToken ct = default);
     Task<VaultNoteSummaryDto> CreateStructuredNoteAsync(DynamicNoteCreateRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<VaultNoteSummaryDto>> QueryNotesAsync(string? query = null, string? category = null, int limit = 20, CancellationToken ct = default);
+    Task<IdeaItemDto> CaptureFleetingIdeaAsync(FleetingIdeaCaptureRequest request, CancellationToken ct = default);
+    Task<BrainstormSessionDto> StartBrainstormSessionAsync(BrainstormStartRequest request, CancellationToken ct = default);
+    Task<IdeaPromotionResultDto> PromoteIdeaAsync(IdeaPromoteRequest request, CancellationToken ct = default);
+    Task<IdeasOverviewDto> GetIdeasOverviewAsync(CancellationToken ct = default);
 }

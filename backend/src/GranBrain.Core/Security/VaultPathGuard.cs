@@ -23,6 +23,17 @@ public sealed class VaultEntityNotFoundException : Exception
     }
 }
 
+public sealed class VaultValidationException : Exception
+{
+    public string ErrorCode { get; }
+
+    public VaultValidationException(string errorCode, string message)
+        : base(message)
+    {
+        ErrorCode = errorCode;
+    }
+}
+
 public sealed class VaultPathGuard
 {
     private readonly string _normalizedRoot;
