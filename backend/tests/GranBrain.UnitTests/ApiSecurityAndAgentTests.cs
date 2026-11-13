@@ -42,6 +42,12 @@ public sealed class ApiSecurityAndAgentTests
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
+            builder.UseSetting("GranBrain:VaultPath", tempVault);
+            builder.UseSetting("GranBrain:Auth:Username", "igor");
+            builder.UseSetting("GranBrain:Auth:DefaultPassword", "GranBrain@2026");
+            builder.UseSetting("GranBrain:Auth:MaxLoginAttemptsPerWindow", "5");
+            builder.UseSetting("GranBrain:Auth:LoginWindowSeconds", "60");
+
             builder.ConfigureAppConfiguration((_, config) =>
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
