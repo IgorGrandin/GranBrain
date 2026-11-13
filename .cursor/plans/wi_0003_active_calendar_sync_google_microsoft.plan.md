@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: fatia-2-api-calendar-endpoints-and-orchestrator
     content: "Expor endpoints REST /api/calendar/* protegidos e integrar intenção de agenda ao AgentOrchestratorService emitindo bloco agenda-timeline"
-    status: pending
+    status: completed
   - id: fatia-3-frontend-generative-ui-agenda-timeline
     content: "Atualizar modelos, GranBrainApiService, AppComponent (rail 0003), styles.scss e GenerativeCanvasComponent para renderizar agenda-timeline nos modos Lista e Calendário"
     status: pending

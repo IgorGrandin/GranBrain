@@ -329,4 +329,103 @@ public sealed class ApiSecurityAndAgentTests
             }
         }
     }
+
+    [Fact]
+    public async Task CalendarEndpoints_RequireJwt_ExecutePipeline_HandleErrors_AndEmitAgendaTimeline()
+    {
+        var tempVault = Path.Combine(Path.GetTempPath(), "GranBrainApiCalendarTest_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var factory = CreateTestFactory(tempVault);
+            using var client = factory.CreateClient();
+
+            // 1. Unauthenticated requests return 401 Unauthorized (JWT Bearer)
+            var unauthToday = await client.GetAsync("/api/calendar/today");
+            Assert.Equal(HttpStatusCode.Unauthorized, unauthToday.StatusCode);
+
+            var unauthSync = await client.PostAsJsonAsync("/api/calendar/sync", new CalendarSyncRequest("2026-10-30"));
+            Assert.Equal(HttpStatusCode.Unauthorized, unauthSync.StatusCode);
+
+            var loginRes = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("igor", "GranBrain@2026"));
+            var token = (await loginRes.Content.ReadFromJsonAsync<LoginResponse>())!.Token;
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // 2. GET /api/calendar/today -> 200 OK with 5 deterministic fallback events
+            var todayRes = await client.GetAsync("/api/calendar/today?date=2026-10-30");
+            Assert.Equal(HttpStatusCode.OK, todayRes.StatusCode);
+            var today = await todayRes.Content.ReadFromJsonAsync<CalendarTodayDto>();
+            Assert.NotNull(today);
+            Assert.Equal("2026-10-30", today.Date);
+            Assert.Equal(5, today.Events.Count);
+            Assert.Equal(1, today.ConflictsCount);
+
+            // 3. POST /api/calendar/sync -> 200 OK and writes daily/2026-10-30.md
+            var syncRes = await client.PostAsJsonAsync("/api/calendar/sync", new CalendarSyncRequest("2026-10-30"));
+            Assert.Equal(HttpStatusCode.OK, syncRes.StatusCode);
+            var syncPayload = await syncRes.Content.ReadFromJsonAsync<CalendarSyncResultDto>();
+            Assert.NotNull(syncPayload);
+            Assert.Equal("daily/2026-10-30.md", syncPayload.DailyNotePath);
+            Assert.True(File.Exists(Path.Combine(tempVault, "daily", "2026-10-30.md")));
+
+            // 4. POST /api/calendar/events/{id}/note -> 200 OK and creates meeting note
+            var targetEvent = today.Events.First(e => e.Title.Contains("Alinhamento GranBrain"));
+            var noteRes = await client.PostAsJsonAsync($"/api/calendar/events/{targetEvent.Id}/note", new CalendarNoteRequest(Date: "2026-10-30"));
+            Assert.Equal(HttpStatusCode.OK, noteRes.StatusCode);
+            var notePayload = await noteRes.Content.ReadFromJsonAsync<CalendarNoteResultDto>();
+            Assert.NotNull(notePayload);
+            Assert.True(notePayload.Created);
+            Assert.Equal("zettelkasten/Reunião - Alinhamento GranBrain.md", notePayload.NotePath);
+
+            // 5. Negative error codes: 400 invalid_calendar_date, 400 vault_path_violation, 404 calendar_event_not_found
+            var invalidDateRes = await client.GetAsync("/api/calendar/today?date=30-10-2026");
+            Assert.Equal(HttpStatusCode.BadRequest, invalidDateRes.StatusCode);
+            Assert.Contains("invalid_calendar_date", await invalidDateRes.Content.ReadAsStringAsync());
+
+            var traversalRes = await client.PostAsJsonAsync("/api/calendar/sync", new CalendarSyncRequest("2026-10-30", "../../evil"));
+            Assert.Equal(HttpStatusCode.BadRequest, traversalRes.StatusCode);
+            Assert.Contains("vault_path_violation", await traversalRes.Content.ReadAsStringAsync());
+
+            var missingNoteRes = await client.PostAsJsonAsync("/api/calendar/events/inexistente/note", new CalendarNoteRequest(Date: "2026-10-30"));
+            Assert.Equal(HttpStatusCode.NotFound, missingNoteRes.StatusCode);
+            Assert.Contains("calendar_event_not_found", await missingNoteRes.Content.ReadAsStringAsync());
+
+            // 6. AgentOrchestratorService emits agenda-timeline block for agenda intent and syncs on sync prompt
+            var agentAgendaRes = await client.PostAsJsonAsync("/api/agent/chat", new AgentChatRequest("Quais reuniões eu tenho na agenda hoje?", "codex"));
+            Assert.Equal(HttpStatusCode.OK, agentAgendaRes.StatusCode);
+            var agentEnvelope = await agentAgendaRes.Content.ReadFromJsonAsync<AgentResponseEnvelope>();
+            Assert.NotNull(agentEnvelope);
+            var agendaBlock = Assert.Single(agentEnvelope.UiBlocks, b => b.Type == GenerativeUiBlockTypes.AgendaTimeline);
+            Assert.NotNull(agendaBlock.CalendarAgenda);
+            Assert.Equal(5, agendaBlock.CalendarAgenda.Events.Count);
+
+            var agentSyncRes = await client.PostAsJsonAsync("/api/agent/chat", new AgentChatRequest("sincronizar agenda de hoje", "codex"));
+            Assert.Equal(HttpStatusCode.OK, agentSyncRes.StatusCode);
+            var syncEnvelope = await agentSyncRes.Content.ReadFromJsonAsync<AgentResponseEnvelope>();
+            Assert.NotNull(syncEnvelope);
+            Assert.Contains(syncEnvelope.TouchedFiles, f => f.StartsWith("daily/", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(syncEnvelope.UiBlocks, b => b.Type == GenerativeUiBlockTypes.AgendaTimeline);
+
+            // 7. Partial calendar credentials -> 400 calendar_auth_failed
+            using var partialFactory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+            {
+                builder.UseSetting("GranBrain:VaultPath", tempVault);
+                builder.UseSetting("GranBrain:Calendar:Google:ClientId", "partial-client-only");
+            });
+            using var partialClient = partialFactory.CreateClient();
+            var partialLogin = await partialClient.PostAsJsonAsync("/api/auth/login", new LoginRequest("igor", "GranBrain@2026"));
+            var partialToken = (await partialLogin.Content.ReadFromJsonAsync<LoginResponse>())!.Token;
+            partialClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", partialToken);
+
+            var authFailedRes = await partialClient.GetAsync("/api/calendar/today?date=2026-10-30");
+            Assert.Equal(HttpStatusCode.BadRequest, authFailedRes.StatusCode);
+            Assert.Contains("calendar_auth_failed", await authFailedRes.Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            if (Directory.Exists(tempVault))
+            {
+                Directory.Delete(tempVault, true);
+            }
+        }
+    }
 }

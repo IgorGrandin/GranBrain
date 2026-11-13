@@ -15,17 +15,20 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
     };
 
     private readonly IVaultService _vaultService;
+    private readonly ICalendarSyncService _calendarSyncService;
     private readonly ICliProcessRunner _cliRunner;
     private readonly VaultPathGuard _guard;
     private readonly GranBrainOptions _options;
 
     public AgentOrchestratorService(
         IVaultService vaultService,
+        ICalendarSyncService calendarSyncService,
         ICliProcessRunner cliRunner,
         VaultPathGuard guard,
         GranBrainOptions options)
     {
         _vaultService = vaultService;
+        _calendarSyncService = calendarSyncService;
         _cliRunner = cliRunner;
         _guard = guard;
         _options = options;
@@ -234,6 +237,13 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
             touchedFiles.Add(created.RelativePath);
         }
 
+        // Intent: Calendar sync when explicitly requested
+        if (IsCalendarIntent(lower) && (lower.Contains("sincronizar") || lower.Contains("sync") || lower.StartsWith("agenda:", StringComparison.Ordinal)))
+        {
+            var syncResult = await _calendarSyncService.SyncAsync(null, null, ct);
+            touchedFiles.Add(syncResult.DailyNotePath);
+        }
+
         // Intent: Toggle habit by voice/text ("marcar hábito orar", "concluir hábito café")
         if (lower.Contains("marcar hábito") || lower.Contains("marcar habito") || lower.Contains("concluir hábito"))
         {
@@ -269,6 +279,20 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
         var wantsForm = lower.Contains("formulário") || lower.Contains("formulario") || lower.Contains("cadastrar") || lower.Contains("criar nota") || lower.Contains("reunião") || lower.Contains("reuniao") || lower.Contains("form");
         var wantsNotes = wantsAll || lower.Contains("nota") || lower.Contains("zettelkasten") || lower.Contains("estudo") || lower.Contains("seguro") || lower.Contains("csharp") || lower.Contains("índice");
         var wantsIdeas = IsIdeasIntent(lower);
+        var wantsAgenda = wantsAll || IsCalendarIntent(lower);
+
+        if (wantsAgenda)
+        {
+            var agenda = await _calendarSyncService.GetTodayAsync(null, ct);
+            blocks.Add(new GenerativeUiBlock(
+                Id: "block-agenda-timeline",
+                Type: GenerativeUiBlockTypes.AgendaTimeline,
+                Title: $"Agenda de hoje · {agenda.Events.Count} evento(s)",
+                Subtitle: agenda.ConflictsCount > 0
+                    ? $"{agenda.ConflictsCount} conflito(s) detectado(s)"
+                    : "Google, Teams e Outlook sincronizados",
+                CalendarAgenda: agenda));
+        }
 
         if (wantsIdeas)
         {
@@ -399,6 +423,19 @@ public sealed class AgentOrchestratorService : IAgentOrchestrator
         lower.Contains("hipótese") ||
         lower.Contains("hipotese") ||
         lower.Contains("promover");
+
+    private static bool IsCalendarIntent(string lower) =>
+        lower.Contains("agenda") ||
+        lower.Contains("reunião") ||
+        lower.Contains("reuniao") ||
+        lower.Contains("reuniões") ||
+        lower.Contains("reunioes") ||
+        lower.Contains("calendário") ||
+        lower.Contains("calendario") ||
+        lower.Contains("sincronizar") ||
+        lower.Contains("conflito") ||
+        lower.Contains("outlook") ||
+        lower.Contains("teams");
 
     private static string BuildContextualReply(
         string prompt,
