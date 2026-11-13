@@ -358,5 +358,105 @@
       </ng-container>
     </div>
 
+    <!-- 8. AGENDA TIMELINE BLOCK -->
+    <div *ngIf="block.type === 'agenda-timeline' && block.calendarAgenda as agenda" class="agenda-block" data-block-type="agenda-timeline">
+      <div class="agenda-toolbar">
+        <div class="chips" role="group" aria-label="Filtrar provedor de agenda">
+          <button
+            type="button"
+            class="chip"
+            *ngFor="let provider of (['Todos', 'Google', 'Teams', 'Outlook'])"
+            [class.on]="agendaProviderFilter === provider"
+            [attr.aria-pressed]="agendaProviderFilter === provider ? 'true' : 'false'"
+            (click)="setAgendaProviderFilter($any(provider))"
+          >{{ provider }}</button>
+        </div>
+        <div class="acts">
+          <div class="seg" role="group" aria-label="Modo de visualização da agenda">
+            <button
+              type="button"
+              [attr.aria-pressed]="agendaViewMode === 'lista' ? 'true' : 'false'"
+              (click)="agendaViewMode = 'lista'"
+            >Lista</button>
+            <button
+              type="button"
+              [attr.aria-pressed]="agendaViewMode === 'calendario' ? 'true' : 'false'"
+              (click)="agendaViewMode = 'calendario'"
+            >Calendário</button>
+          </div>
+          <button type="button" class="btn sm" data-agenda-sync (click)="onAgendaSync(block.id)">Sincronizar</button>
+        </div>
+      </div>
+
+      <div *ngIf="agenda.conflictsCount > 0" class="conflict">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <div>
+          <strong>{{ agenda.conflictsCount }} conflito(s) de horário</strong> detectado(s) entre provedores hoje.
+        </div>
+      </div>
+
+      <div *ngIf="agendaViewMode === 'lista'" class="timeline">
+        <p *ngIf="getFilteredAgendaEvents(agenda.events).length === 0" class="small muted">Nenhum evento encontrado para o filtro selecionado.</p>
+        <ng-container *ngFor="let ev of getFilteredAgendaEvents(agenda.events); let i = index">
+          <div *ngIf="shouldRenderNowlineBefore(getFilteredAgendaEvents(agenda.events), i)" class="nowline">
+            <span>Agora · {{ getCurrentTimeLabel() }}</span>
+          </div>
+          <div class="ev" [class.past]="ev.status === 'past'" [class.now]="ev.status === 'now'" [class.next]="ev.status === 'next'">
+            <time>{{ ev.startTime }}</time>
+            <span class="dot"></span>
+            <div class="card ev-card">
+              <div class="ev-top">
+                <div>
+                  <strong>{{ ev.title }}</strong>
+                  <div class="ev-meta small muted">
+                    <span class="mono">{{ ev.startTime }}–{{ ev.endTime }}</span>
+                    <span class="pill sm" [class.info]="ev.provider === 'Google'" [class.accent]="ev.provider === 'Teams'" [class.warn]="ev.provider === 'Outlook'">{{ ev.provider }}</span>
+                    <span *ngIf="ev.hasConflict" class="pill sm danger">Conflito</span>
+                    <span *ngIf="ev.location">{{ ev.location }}</span>
+                  </div>
+                </div>
+                <div class="acts">
+                  <a *ngIf="ev.joinUrl" class="link" data-event-join [href]="ev.joinUrl" target="_blank" rel="noopener">Entrar na reunião</a>
+                  <button type="button" class="btn sm" data-event-note (click)="onRequestCalendarNote(ev, block.id)">
+                    {{ ev.notePath ? 'Abrir nota' : 'Criar nota' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      <div *ngIf="agendaViewMode === 'calendario'" class="card calwrap">
+        <div class="cal-grid">
+          <div *ngFor="let hour of calendarHours; let idx = index" class="cal-line" [style.top.px]="idx * 60">
+            <span class="cal-hour">{{ hour }}</span>
+          </div>
+          <div class="cal-now" [style.top.px]="getCalendarNowTopPx()">
+            <span>{{ getCurrentTimeLabel() }}</span>
+          </div>
+          <div
+            *ngFor="let ev of getFilteredAgendaEvents(agenda.events)"
+            class="cal-ev"
+            [class.p-google]="ev.provider === 'Google'"
+            [class.p-teams]="ev.provider === 'Teams'"
+            [class.p-outlook]="ev.provider === 'Outlook'"
+            [class.clash]="ev.hasConflict"
+            [style.top.px]="ev.calendarTopPx"
+            [style.height.px]="ev.calendarHeightPx"
+            [style.left.%]="getCalEventLeftPct(ev)"
+            [style.width.%]="getCalEventWidthPct(ev)"
+            [title]="ev.startTime + '–' + ev.endTime + ' · ' + ev.title"
+          >
+            {{ ev.startTime }} {{ ev.title }}
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>

@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: fatia-3-frontend-generative-ui-agenda-timeline
     content: "Atualizar modelos, GranBrainApiService, AppComponent (rail 0003), styles.scss e GenerativeCanvasComponent para renderizar agenda-timeline nos modos Lista e Calendário"
-    status: pending
+    status: completed
   - id: gate
     content: "Executar suítes backend dotnet test e frontend npm test -- --watch=false, além de dotnet build / npm run build e validação completa contra o último commit em árvore limpa"
     status: pending

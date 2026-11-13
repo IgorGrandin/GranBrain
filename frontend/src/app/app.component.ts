@@ -6,6 +6,8 @@ import { GranBrainApiService } from './services/granbrain-api.service';
 import { VoiceService } from './services/voice.service';
 import {
   AiProviderStatus,
+  CalendarEvent,
+  CalendarToday,
   GenerativeUiBlock,
   HabitItem,
   IdeasOverview,
@@ -303,6 +305,11 @@ export class AppComponent implements OnInit, OnDestroy {
     this.loadIdeasOverview();
   }
 
+  public openAgendaView(): void {
+    this.currentView = 'agenda';
+    this.loadAgendaToday();
+  }
+
   public onIdeaCaptured(event: { text: string; target?: string; blockId: string }): void {
     this.api.captureFleetingIdea({ text: event.text, target: event.target || 'fleeting' }).subscribe({
       next: () => {
@@ -365,6 +372,55 @@ export class AppComponent implements OnInit, OnDestroy {
         title: 'Esteira de Ideação & Brainstorming Socrático',
         subtitle: 'Fleeting -> Brainstorm -> Permanente / Projetos',
         ideasOverview: ov
+      }
+    ];
+  }
+
+  public onAgendaSyncRequested(_event: { blockId: string }): void {
+    this.api.syncCalendar(false).subscribe({
+      next: (res) => {
+        this.applyAgendaBlock(res.agenda);
+        this.showToast(`Agenda sincronizada (${res.syncedCount} eventos)`, 'ok');
+      },
+      error: () => this.showToast('Falha ao sincronizar agenda', 'danger')
+    });
+  }
+
+  public onCalendarNoteRequested(event: { event: CalendarEvent; blockId: string }): void {
+    this.api.createCalendarEventNote(event.event.id, {
+      title: event.event.title,
+      startTime: event.event.startTime,
+      endTime: event.event.endTime,
+      provider: event.event.provider,
+      attendees: event.event.attendees,
+      joinUrl: event.event.joinUrl || undefined
+    }).subscribe({
+      next: (res) => {
+        event.event.notePath = res.notePath;
+        this.showToast(
+          res.created ? `Nota de reunião criada em ${res.notePath}` : `Nota aberta: ${res.notePath}`,
+          'ok'
+        );
+      },
+      error: () => this.showToast('Falha ao gerar nota da reunião', 'danger')
+    });
+  }
+
+  private loadAgendaToday(): void {
+    this.api.getCalendarToday().subscribe({
+      next: (agenda) => this.applyAgendaBlock(agenda),
+      error: () => this.showToast('Erro ao carregar agenda de hoje', 'danger')
+    });
+  }
+
+  private applyAgendaBlock(agenda: CalendarToday): void {
+    this.currentBlocks = [
+      {
+        id: 'agenda-today',
+        type: 'agenda-timeline',
+        title: 'Agenda & Sincronia do Dia',
+        subtitle: `${agenda.date} · ${agenda.timeZone}`,
+        calendarAgenda: agenda
       }
     ];
   }

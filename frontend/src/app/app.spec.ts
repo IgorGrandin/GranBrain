@@ -423,6 +423,89 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
         activeSession: null
       });
     });
+
+    it('AppComponent navigates to Agenda 0003 view via rail, syncs calendar, and creates meeting notes', () => {
+      fixture.detectChanges();
+      component.isAuthenticated = true;
+      fixture.detectChanges();
+
+      const agendaNav = fixture.debugElement.queryAll(By.css('.rail .nav-item'))
+        .find((el) => el.nativeElement.textContent.includes('0003'));
+      expect(agendaNav).withContext('Should render 0003 nav item in rail').toBeTruthy();
+
+      const sampleAgenda = {
+        date: '2026-10-30',
+        timeZone: 'America/Sao_Paulo',
+        lastSyncedAt: '2026-10-30T10:00:00Z',
+        conflictsCount: 1,
+        providersConnected: ['Google', 'Teams', 'Outlook'],
+        events: [
+          {
+            id: 'ev-teams-1',
+            provider: 'Teams',
+            title: 'Arquitetura GranBrain',
+            startIso: '2026-10-30T10:00:00-03:00',
+            endIso: '2026-10-30T11:00:00-03:00',
+            startTime: '10:00',
+            endTime: '11:00',
+            durationMinutes: 60,
+            location: 'Microsoft Teams',
+            attendees: ['igor@granbrain.dev'],
+            joinUrl: 'https://teams.microsoft.com/l/meetup-join/123',
+            notePath: null,
+            status: 'now',
+            hasConflict: false,
+            calendarTopPx: 120,
+            calendarHeightPx: 60,
+            calendarColumn: 0,
+            calendarTotalColumns: 1
+          }
+        ]
+      };
+
+      agendaNav!.nativeElement.click();
+      const todayReq = httpMock.expectOne('/api/calendar/today');
+      expect(todayReq.request.method).toBe('GET');
+      todayReq.flush(sampleAgenda);
+
+      fixture.detectChanges();
+      expect((component as any).currentView).toBe('agenda');
+      expect(fixture.debugElement.query(By.css('.topbar .crumb')).nativeElement.textContent).toContain('Agenda');
+      expect(component.currentBlocks.some((b) => b.type === 'agenda-timeline')).toBeTrue();
+
+      const syncBtn = fixture.debugElement.query(By.css('[data-agenda-sync]'));
+      expect(syncBtn).withContext('Should render sync button for agenda-timeline').not.toBeNull();
+      syncBtn.nativeElement.click();
+
+      const syncReq = httpMock.expectOne('/api/calendar/sync');
+      expect(syncReq.request.method).toBe('POST');
+      syncReq.flush({
+        date: '2026-10-30',
+        dailyNotePath: 'diario/2026-10-30.md',
+        syncedCount: 1,
+        conflictsCount: 0,
+        createdNotes: [],
+        agenda: sampleAgenda
+      });
+      fixture.detectChanges();
+
+      const noteBtn = fixture.debugElement.query(By.css('[data-event-note]'));
+      expect(noteBtn).withContext('Should render create-note action button on event card').not.toBeNull();
+      noteBtn.nativeElement.click();
+
+      const noteReq = httpMock.expectOne('/api/calendar/events/ev-teams-1/note');
+      expect(noteReq.request.method).toBe('POST');
+      noteReq.flush({
+        eventId: 'ev-teams-1',
+        title: 'Arquitetura GranBrain',
+        notePath: 'reunioes/2026-10-30 - Arquitetura GranBrain.md',
+        created: true
+      });
+      fixture.detectChanges();
+
+      const toastEl = fixture.debugElement.query(By.css('.toasts .toast'));
+      expect(toastEl).withContext('Should show toast feedback after creating meeting note').not.toBeNull();
+    });
   });
 
   describe('GenerativeCanvasComponent Ideas & Brainstorm Blocks', () => {
@@ -534,6 +617,203 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
 
       bsBlock.query(By.css('[data-session-promote="permanente"]')).nativeElement.click();
       expect(promSpy).toHaveBeenCalled();
+    });
+
+    it('renders agenda-timeline block in Lista and Calendario modes with provider filter, canonical computed styles, and actions', () => {
+      const mockAgendaBlock: GenerativeUiBlock = {
+        id: 'blk-agenda',
+        type: 'agenda-timeline',
+        title: 'Agenda do Dia',
+        subtitle: 'Sexta, 30 Out · America/Sao_Paulo',
+        calendarAgenda: {
+          date: '2026-10-30',
+          timeZone: 'America/Sao_Paulo',
+          lastSyncedAt: '2026-10-30T10:15:00Z',
+          conflictsCount: 2,
+          providersConnected: ['Google', 'Teams', 'Outlook'],
+          events: [
+            {
+              id: 'ev-g-past',
+              provider: 'Google',
+              title: 'Daily Standup',
+              startIso: '2026-10-30T08:30:00-03:00',
+              endIso: '2026-10-30T09:00:00-03:00',
+              startTime: '08:30',
+              endTime: '09:00',
+              durationMinutes: 30,
+              location: 'Google Meet',
+              attendees: ['ana@granbrain.dev'],
+              joinUrl: 'https://meet.google.com/abc-defg-hij',
+              notePath: null,
+              status: 'past',
+              hasConflict: false,
+              calendarTopPx: 30,
+              calendarHeightPx: 30,
+              calendarColumn: 0,
+              calendarTotalColumns: 1
+            },
+            {
+              id: 'ev-t-now',
+              provider: 'Teams',
+              title: 'Review Sprint',
+              startIso: '2026-10-30T10:00:00-03:00',
+              endIso: '2026-10-30T11:00:00-03:00',
+              startTime: '10:00',
+              endTime: '11:00',
+              durationMinutes: 60,
+              location: 'Teams',
+              attendees: ['time@granbrain.dev'],
+              joinUrl: 'https://teams.microsoft.com/l/meetup-join/456',
+              notePath: null,
+              status: 'now',
+              hasConflict: true,
+              calendarTopPx: 120,
+              calendarHeightPx: 60,
+              calendarColumn: 0,
+              calendarTotalColumns: 2
+            },
+            {
+              id: 'ev-o-clash',
+              provider: 'Outlook',
+              title: '1:1 Produto',
+              startIso: '2026-10-30T10:30:00-03:00',
+              endIso: '2026-10-30T11:30:00-03:00',
+              startTime: '10:30',
+              endTime: '11:30',
+              durationMinutes: 60,
+              location: 'Sala 2',
+              attendees: ['pm@granbrain.dev'],
+              joinUrl: null,
+              notePath: 'reunioes/2026-10-30 - 1-1 Produto.md',
+              status: 'next',
+              hasConflict: true,
+              calendarTopPx: 150,
+              calendarHeightPx: 60,
+              calendarColumn: 1,
+              calendarTotalColumns: 2
+            },
+            {
+              id: 'ev-g-next',
+              provider: 'Google',
+              title: 'Design Critique',
+              startIso: '2026-10-30T14:00:00-03:00',
+              endIso: '2026-10-30T15:00:00-03:00',
+              startTime: '14:00',
+              endTime: '15:00',
+              durationMinutes: 60,
+              location: 'Meet',
+              attendees: [],
+              joinUrl: 'https://meet.google.com/xyz-1234-uvw',
+              notePath: null,
+              status: 'next',
+              hasConflict: false,
+              calendarTopPx: 360,
+              calendarHeightPx: 60,
+              calendarColumn: 0,
+              calendarTotalColumns: 1
+            }
+          ]
+        }
+      } as any;
+
+      component.blocks = [mockAgendaBlock];
+      fixture.detectChanges();
+
+      const blockEl = fixture.debugElement.query(By.css('.agenda-block'));
+      expect(blockEl).withContext('Should render .agenda-block container').not.toBeNull();
+
+      const conflictEl = blockEl.query(By.css('.conflict'));
+      expect(conflictEl).withContext('Should render .conflict warning banner').not.toBeNull();
+      expect(conflictEl.nativeElement.textContent).toContain('2');
+
+      const timelineEl = blockEl.query(By.css('.timeline'));
+      expect(timelineEl).withContext('Should start in Lista (.timeline) view').not.toBeNull();
+      expect(blockEl.queryAll(By.css('.ev')).length).toBe(4);
+      expect(blockEl.query(By.css('.ev.past'))).not.toBeNull();
+      const nowEv = blockEl.query(By.css('.ev.now'));
+      expect(nowEv).not.toBeNull();
+      expect(blockEl.query(By.css('.ev.next'))).not.toBeNull();
+      expect(blockEl.query(By.css('.nowline'))).not.toBeNull();
+      expect(blockEl.queryAll(By.css('[data-event-join]')).length).toBe(3);
+
+      // Canonical CSS computed checks in Lista mode
+      const evStyle = getComputedStyle(nowEv.nativeElement);
+      expect(evStyle.display).toBe('grid');
+      expect(evStyle.gridTemplateColumns.startsWith('56px 14px')).toBeTrue();
+      const nowDotStyle = getComputedStyle(nowEv.query(By.css('.dot')).nativeElement);
+      expect(nowDotStyle.backgroundColor).toBe('rgb(23, 112, 58)');
+      const conflictStyle = getComputedStyle(conflictEl.nativeElement);
+      expect(conflictStyle.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+
+      // Provider filter chip reduces DOM items in Lista mode
+      const chips = blockEl.queryAll(By.css('.chips .chip'));
+      const teamsChip = chips.find((c) => c.nativeElement.textContent.includes('Teams'));
+      const allChip = chips.find((c) => c.nativeElement.textContent.includes('Todos'));
+      expect(teamsChip).toBeTruthy();
+      expect(allChip).toBeTruthy();
+
+      teamsChip!.nativeElement.click();
+      fixture.detectChanges();
+      expect(teamsChip!.nativeElement.getAttribute('aria-pressed')).toBe('true');
+      expect(blockEl.queryAll(By.css('.ev')).length).toBe(1);
+
+      allChip!.nativeElement.click();
+      fixture.detectChanges();
+      expect(blockEl.queryAll(By.css('.ev')).length).toBe(4);
+
+      // Toggle to Calendario view (.seg)
+      const segButtons = blockEl.queryAll(By.css('.seg button'));
+      const calBtn = segButtons.find((b) => b.nativeElement.textContent.includes('Calendário'));
+      expect(calBtn).toBeTruthy();
+      calBtn!.nativeElement.click();
+      fixture.detectChanges();
+
+      expect(calBtn!.nativeElement.getAttribute('aria-pressed')).toBe('true');
+      expect(blockEl.query(By.css('.calwrap'))).not.toBeNull();
+      expect(blockEl.query(By.css('.cal-grid'))).not.toBeNull();
+      expect(blockEl.query(By.css('.cal-now'))).not.toBeNull();
+      expect(blockEl.queryAll(By.css('.cal-hour')).length).toBe(11);
+      expect(blockEl.queryAll(By.css('.cal-ev')).length).toBe(4);
+
+      // Provider & clash visual styling in Calendario mode
+      const googleCalEv = blockEl.query(By.css('.cal-ev.p-google'));
+      const teamsCalEv = blockEl.query(By.css('.cal-ev.p-teams'));
+      const outlookCalEv = blockEl.query(By.css('.cal-ev.p-outlook'));
+      const clashCalEv = blockEl.query(By.css('.cal-ev.clash'));
+      expect(googleCalEv).not.toBeNull();
+      expect(teamsCalEv).not.toBeNull();
+      expect(outlookCalEv).not.toBeNull();
+      expect(clashCalEv).not.toBeNull();
+
+      expect(getComputedStyle(googleCalEv.nativeElement).backgroundColor).not.toBe(
+        getComputedStyle(teamsCalEv.nativeElement).backgroundColor
+      );
+      expect(getComputedStyle(outlookCalEv.nativeElement).backgroundColor).not.toBe(
+        getComputedStyle(googleCalEv.nativeElement).backgroundColor
+      );
+      const clashStyle = getComputedStyle(clashCalEv.nativeElement);
+      expect(clashStyle.borderTopStyle).toBe('dashed');
+      expect(parseFloat(clashStyle.borderTopWidth)).toBeGreaterThanOrEqual(1);
+      expect(clashStyle.borderTopColor).toBe('rgb(180, 35, 24)');
+
+      // Filter Outlook in Calendario mode reduces .cal-ev count
+      const outlookChip = blockEl.queryAll(By.css('.chips .chip')).find((c) => c.nativeElement.textContent.includes('Outlook'));
+      outlookChip!.nativeElement.click();
+      fixture.detectChanges();
+      expect(blockEl.queryAll(By.css('.cal-ev')).length).toBe(1);
+
+      // Output emissions
+      const syncSpy = spyOn((component as any).agendaSyncRequested, 'emit');
+      const noteSpy = spyOn((component as any).calendarNoteRequested, 'emit');
+      blockEl.query(By.css('[data-agenda-sync]')).nativeElement.click();
+      expect(syncSpy).toHaveBeenCalledWith({ blockId: 'blk-agenda' });
+
+      // Back to Lista to click [data-event-note]
+      segButtons[0].nativeElement.click();
+      blockEl.queryAll(By.css('.chips .chip')).find((c) => c.nativeElement.textContent.includes('Todos'))!.nativeElement.click();
+      fixture.detectChanges();
+      blockEl.query(By.css('[data-event-note]')).nativeElement.click();
+      expect(noteSpy).toHaveBeenCalled();
     });
   });
 });

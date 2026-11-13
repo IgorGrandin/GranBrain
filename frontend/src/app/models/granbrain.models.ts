@@ -5,7 +5,8 @@ export type GenerativeUiBlockType =
   | 'dynamic-form'
   | 'markdown-note-list'
   | 'idea-capture'
-  | 'brainstorm-canvas';
+  | 'brainstorm-canvas'
+  | 'agenda-timeline';
 
 export interface KpiMetricItem {
   label: string;
@@ -76,6 +77,55 @@ export interface GenerativeUiBlock {
   form?: DynamicFormSchema;
   notes?: VaultNoteSummary[];
   ideasOverview?: IdeasOverview;
+  calendarAgenda?: CalendarToday;
+}
+
+export type CalendarProvider = 'Google' | 'Teams' | 'Outlook';
+
+export interface CalendarEvent {
+  id: string;
+  provider: CalendarProvider;
+  title: string;
+  startIso: string;
+  endIso: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  location?: string | null;
+  attendees: string[];
+  joinUrl?: string | null;
+  notePath?: string | null;
+  status: 'past' | 'now' | 'next' | string;
+  hasConflict: boolean;
+  calendarTopPx: number;
+  calendarHeightPx: number;
+  calendarColumn: number;
+  calendarTotalColumns: number;
+}
+
+export interface CalendarToday {
+  date: string;
+  timeZone: string;
+  lastSyncedAt?: string | null;
+  conflictsCount: number;
+  providersConnected: string[];
+  events: CalendarEvent[];
+}
+
+export interface CalendarSyncResult {
+  date: string;
+  dailyNotePath: string;
+  syncedCount: number;
+  conflictsCount: number;
+  createdNotes: string[];
+  agenda: CalendarToday;
+}
+
+export interface CalendarNoteResult {
+  eventId: string;
+  title: string;
+  notePath: string;
+  created: boolean;
 }
 
 export interface IdeaItem {

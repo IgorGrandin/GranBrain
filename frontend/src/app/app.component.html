@@ -111,7 +111,7 @@
           <span>Ideias & Fleeting</span>
           <span class="wi">0002</span>
         </a>
-        <a class="nav-item" href="javascript:void(0)" (click)="showToast('Módulo de Agenda (0003) em breve', 'warn')">
+        <a class="nav-item" [class.on]="currentView === 'agenda'" href="javascript:void(0)" (click)="openAgendaView()">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           <span>Agenda & Sincronia</span>
           <span class="wi">0003</span>
@@ -147,7 +147,7 @@
       <div class="crumb">
         <span>GranBrain</span>
         <span class="sep">/</span>
-        <strong>{{ currentView === 'ideas' ? 'Ideias & Fleeting' : 'Command Center' }}</strong>
+        <strong>{{ currentView === 'ideas' ? 'Ideias & Fleeting' : (currentView === 'agenda' ? 'Agenda & Sincronia' : 'Command Center') }}</strong>
       </div>
 
       <div class="topbar-end">
@@ -203,6 +203,8 @@
         (ideaVoiceTriggered)="onIdeaVoiceTriggered($event)"
         (ideaBrainstormRequested)="onIdeaBrainstormRequested($event)"
         (ideaPromoted)="onIdeaPromoted($event)"
+        (agendaSyncRequested)="onAgendaSyncRequested($event)"
+        (calendarNoteRequested)="onCalendarNoteRequested($event)"
       ></app-generative-canvas>
     </div>
 

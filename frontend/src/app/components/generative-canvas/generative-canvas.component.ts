@@ -2,6 +2,8 @@ import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
+  CalendarEvent,
+  CalendarProvider,
   GenerativeUiBlock,
   HabitItem,
   IdeaItem,
@@ -32,12 +34,17 @@ export class GenerativeCanvasComponent implements OnInit {
   @Output() public ideaVoiceTriggered = new EventEmitter<{ blockId: string }>();
   @Output() public ideaBrainstormRequested = new EventEmitter<{ ideaId: string; ideaText: string; blockId: string }>();
   @Output() public ideaPromoted = new EventEmitter<{ ideaId: string; target: 'permanente' | 'projeto' | 'descartada'; socraticAnswer?: string; blockId: string }>();
+  @Output() public agendaSyncRequested = new EventEmitter<{ blockId: string }>();
+  @Output() public calendarNoteRequested = new EventEmitter<{ event: CalendarEvent; blockId: string }>();
 
   public formStore: Record<string, Record<string, string>> = {};
   public noteSearchQuery = '';
   public selectedNote?: VaultNoteSummary;
   public ideaDraftText = '';
   public socraticAnswer = '';
+  public agendaViewMode: 'lista' | 'calendario' = 'lista';
+  public agendaProviderFilter: 'Todos' | CalendarProvider = 'Todos';
+  public readonly calendarHours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
 
   constructor() {}
 
@@ -194,5 +201,56 @@ export class GenerativeCanvasComponent implements OnInit {
       case 'medio': return 'pill warn';
       default: return 'pill';
     }
+  }
+
+  public setAgendaProviderFilter(provider: 'Todos' | CalendarProvider): void {
+    this.agendaProviderFilter = provider;
+  }
+
+  public getFilteredAgendaEvents(events?: CalendarEvent[]): CalendarEvent[] {
+    if (!events) return [];
+    if (this.agendaProviderFilter === 'Todos') return events;
+    return events.filter((ev) => ev.provider === this.agendaProviderFilter);
+  }
+
+  public onAgendaSync(blockId: string): void {
+    this.agendaSyncRequested.emit({ blockId });
+  }
+
+  public onRequestCalendarNote(event: CalendarEvent, blockId: string): void {
+    this.calendarNoteRequested.emit({ event, blockId });
+  }
+
+  public shouldRenderNowlineBefore(events: CalendarEvent[], index: number): boolean {
+    if (!events || events.length === 0) return false;
+    const nowIndex = events.findIndex((e) => e.status === 'now');
+    if (nowIndex >= 0) return index === nowIndex;
+    const nextIndex = events.findIndex((e) => e.status === 'next');
+    if (nextIndex >= 0) return index === nextIndex;
+    return index === 0;
+  }
+
+  public getCurrentTimeLabel(): string {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  }
+
+  public getCalendarNowTopPx(): number {
+    const now = new Date();
+    const minutesSince8 = (now.getHours() - 8) * 60 + now.getMinutes();
+    return Math.max(0, Math.min(600, minutesSince8));
+  }
+
+  public getCalEventLeftPct(ev: CalendarEvent): number {
+    const total = Math.max(1, ev.calendarTotalColumns || 1);
+    const col = Math.max(0, Math.min(total - 1, ev.calendarColumn || 0));
+    return (col / total) * 100;
+  }
+
+  public getCalEventWidthPct(ev: CalendarEvent): number {
+    const total = Math.max(1, ev.calendarTotalColumns || 1);
+    return (1 / total) * 100;
   }
 }

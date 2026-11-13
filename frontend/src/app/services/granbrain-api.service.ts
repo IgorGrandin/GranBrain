@@ -7,6 +7,9 @@ import {
   AiProviderStatus,
   BrainstormSession,
   BrainstormStartRequest,
+  CalendarNoteResult,
+  CalendarSyncResult,
+  CalendarToday,
   FleetingIdeaCaptureRequest,
   HabitItem,
   IdeaItem,
@@ -175,5 +178,34 @@ export class GranBrainApiService {
     return this.http.post<IdeaPromotionResult>(`${this.baseUrl}/vault/ideas/promote`, req, {
       headers: this.getAuthHeaders()
     });
+  }
+
+  public getCalendarToday(): Observable<CalendarToday> {
+    return this.http.get<CalendarToday>(`${this.baseUrl}/calendar/today`, {
+      headers: this.getAuthHeaders()
+    });
+  }
+
+  public syncCalendar(createMeetingNotes = false): Observable<CalendarSyncResult> {
+    return this.http.post<CalendarSyncResult>(
+      `${this.baseUrl}/calendar/sync`,
+      { createMeetingNotes },
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  public createCalendarEventNote(eventId: string, body?: {
+    title?: string;
+    startTime?: string;
+    endTime?: string;
+    provider?: string;
+    attendees?: string[];
+    joinUrl?: string;
+  }): Observable<CalendarNoteResult> {
+    return this.http.post<CalendarNoteResult>(
+      `${this.baseUrl}/calendar/events/${encodeURIComponent(eventId)}/note`,
+      body || {},
+      { headers: this.getAuthHeaders() }
+    );
   }
 }
