@@ -30,30 +30,30 @@ Comparação entre [granbrain-redesign.html](../../frontend/_imports/claude-desi
 Fonte visual obrigatória: [granbrain-redesign.html](../../frontend/_imports/claude-design/granbrain-redesign/2026-10-30/original/granbrain-redesign.html) (`:229-237`, `:359-391`, `:703-709`, `:853`, `:865-869`, `:893`, `:1206-1274`). Todos os estilos pertencem ao **Bucket A** (tokens `:root` já existentes em `frontend/src/styles.scss` sem alteração de variáveis globais).
 
 - **Cabeçalho da agenda (`agHeader`)**:
-  - Título `Agenda de hoje · N evento(s)` acompanhado de segmented toggle `.seg` (`display: inline-flex; padding: 3px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-pill); gap: 2px`) com botões `Lista` e `Calendário` (`padding: 4px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 500; color: var(--text-2)`; ativo com `background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.06)` e `[aria-pressed="true"]`).
-  - Grupo `.chips` de filtros por provedor (`Todos`, `Google`, `Teams`, `Outlook`) usando os estilos existentes de `.chips`/`.chip` com `[aria-pressed="true"]` e indicadores coloridos (`.dot`): Google (`#2563eb`), Teams (`#5b5fc7`), Outlook (`#0f766e`).
+  - Título `Agenda` acompanhado de segmented toggle `.seg` (`display: inline-flex; padding: 3px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface)`) com botões `Lista` e `Calendário` (`min-height: 30px; border: 0; background: transparent; border-radius: 999px; padding: 0 10px; font-size: 13px; color: var(--fg-2)`; ativo `[aria-pressed="true"]` com `background: var(--fg); color: var(--bg)`).
+  - Grupo `.chips` de filtros por provedor (`Todos`, `Google`, `Teams`, `Outlook`) usando os estilos existentes de `.chips`/`.chip` com `[aria-pressed="true"]`.
 - **Banner de conflito (`.conflict`)**:
-  - Renderizado quando `conflictsCount > 0` (`display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius-md); background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); font-size: 12.5px; margin-bottom: 14px`), com ícone `.conflict .ico` (`color: var(--warn); font-weight: 700`) e ação rápida para focar/destacar os eventos sobrepostos.
+  - Renderizado quando `conflictsCount > 0` (`display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--warn-soft); color: var(--fg); font-size: 14px; margin-top: 16px`), com ícone `.conflict .ico` (`color: var(--warn); margin-top: 2px`).
 - **Modo Lista (`.timeline`)**:
-  - Linha vertical à esquerda (`margin: 10px 0 10px 8px; padding-left: 22px; border-left: 1px solid var(--line-strong)`).
-  - Marcador `.nowline` inserido imediatamente antes do primeiro evento futuro (`display: flex; align-items: center; gap: 8px; margin: 4px 0 12px -28px; color: var(--accent); font-size: 11px; font-family: var(--font-mono)` com badge `Agora · HH:mm`).
-  - Cada item `.ev` usa grid `display: grid; grid-template-columns: 84px 1fr; gap: 14px; position: relative; padding-bottom: 14px`:
-    - Dot marcador `.ev .dot` (`position: absolute; left: -27px; top: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line-strong)`).
-    - Em `.ev.now .dot`: `background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft)`.
-    - Em `.ev.past`: `opacity: 0.62`.
-    - Coluna `.ev .time`: `font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); padding-top: 6px; line-height: 1.4` (horário início + duração/fim em `--text-3`).
-    - Cartão `.ev-card`: `background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px 14px` (hover: `border-color: var(--line-strong); box-shadow: var(--shadow-sm)`).
-    - Cabeçalho `.ev-top`: título `.ev-title` (`font-size: 13.5px; font-weight: 600`), pill de provedor (`Google`, `Teams`, `Outlook`) e badge de status (`agora`, `próxima`, `em seguida`, `realizada`, `conflito`).
-    - Rodapé `.ev-meta`: local/modalidade + participantes (`font-size: 11.5px; color: var(--text-2)`) + botões/links `.link` (`color: var(--accent); background: transparent; border: none; padding: 2px 6px; border-radius: 6px; font-size: 11.5px; font-weight: 500` — `[data-event-join]` quando houver `JoinUrl` e `[data-event-note]` para abrir/gerar a nota da reunião).
+  - Container `.timeline` (`display: grid; gap: 10px; margin-top: 16px`).
+  - Marcador `.nowline` inserido imediatamente antes do primeiro evento futuro (`display: grid; grid-template-columns: 56px 14px minmax(0, 1fr); gap: 10px; align-items: center`, linha `var(--danger)` e texto `Agora · HH:mm` em `var(--danger)`).
+  - Cada item `.ev` usa grid `display: grid; grid-template-columns: 56px 14px minmax(0, 1fr); align-items: start; gap: 10px`:
+    - Dot marcador `.ev .dot` (`width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); margin-top: 18px; justify-self: center`).
+    - Em `.ev.now .dot`: `background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft)` e `.ev.now .ev-card`: `border-color: var(--ok)`.
+    - Em `.ev.past`: `opacity: 0.55`.
+    - Coluna `time`: `padding-top: 16px; color: var(--fg-2)` com classe `.mono`.
+    - Cartão `.ev-card`: `padding: 14px 16px; display: grid; gap: 8px` sobre `.card`.
+    - Cabeçalho `.ev-top`: `display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap` com título em `<strong>` e pill de status (`Passou`, `Em andamento`, `Próximo`).
+    - Rodapé `.ev-meta`: `display: flex; gap: 10px; align-items: center; flex-wrap: wrap`, horário `s–e`, pill de provedor (`Google` `.info`, `Teams` `.accent`, `Outlook` `.warn`), local/participantes e links `.link` (`[data-event-join]` quando houver `JoinUrl` e `[data-event-note]` para abrir/gerar a nota da reunião).
 - **Modo Calendário (`.calwrap`)**:
-  - Grade de 08:00 às 19:00 (`11h`, `660` min) em altura proporcional (`height: 600px`, escala `54.54px/h`, container `.calwrap` com `background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 14px`), com `.cal-grid` (`display: grid; grid-template-columns: 56px 1fr; position: relative; min-height: 600px`).
-  - Linhas horárias `.cal-line` e rótulos `.cal-hour` (`font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); text-align: right; padding-right: 10px`).
-  - Linha de hora atual `.cal-now` posicionada verticalmente por minuto (`border-top: 1.5px solid var(--accent)`) com chip indicando `HH:mm`.
+  - Grade de 08:00 às 18:00 (`10h`, `600` min) em altura proporcional (`height: 600px`, escala `60px/h`, container `.calwrap` com `padding: 16px 14px 16px 0; overflow-x: auto; margin-top: 16px`), com `.cal-grid` (`position: relative; margin-left: 60px; min-width: 300px`).
+  - Linhas horárias `.cal-line` (`border-top: 1px solid var(--line)`) e rótulos `.cal-hour` (`position: absolute; left: -60px; width: 50px; text-align: right; font-size: 12px; color: var(--fg-3)`).
+  - Linha de hora atual `.cal-now` posicionada verticalmente por minuto (`border-top: 2px solid var(--danger)`) com rótulo `HH:mm` em `var(--danger)`.
   - Blocos `.cal-ev` posicionados proporcionalmente por horário e coluna (quando há colisão, split em largura com recuo horizontal entre colunas):
-    - `.cal-ev.p-google`: `border-left-color: var(--accent); background: var(--accent-soft)`
-    - `.cal-ev.p-teams`: `border-left-color: #5b5fc7; background: color-mix(in srgb, #5b5fc7 12%, var(--surface))`
-    - `.cal-ev.p-outlook`: `border-left-color: var(--ok); background: var(--ok-soft)`
-    - `.cal-ev.clash`: `border: 1px dashed var(--warn); border-left: 3px solid var(--warn); background: var(--warn-soft)`
+    - `.cal-ev.p-google`: `background: var(--info-soft); color: var(--info)`
+    - `.cal-ev.p-teams`: `background: var(--accent-soft); color: var(--accent)`
+    - `.cal-ev.p-outlook`: `background: var(--warn-soft); color: var(--warn)`
+    - `.cal-ev.clash`: `border: 1.5px dashed var(--danger)`
 
 **Dentro:**
 - Modelos, interfaces e opções de configuração no backend (`GranBrain.Core`) para eventos normalizados (`CalendarProvider`, `CalendarEventDto`, `CalendarTodayDto`, `CalendarSyncResultDto`, `CalendarNoteResultDto`, `CalendarOptions`).
@@ -70,7 +70,7 @@ Fonte visual obrigatória: [granbrain-redesign.html](../../frontend/_imports/cla
 ## Critérios de aceite
 
 - **AC1 (Conectores Google + Microsoft Graph, renovação in-memory e segurança de credenciais):**
-  - `GET /api/calendar/today` e `POST /api/calendar/sync` exigem autenticação de API key (`401 Unauthorized` sem `X-Api-Key` válido em chamadas autenticadas).
+  - `GET /api/calendar/today` e `POST /api/calendar/sync` exigem autenticação JWT Bearer (`.RequireAuthorization()`, retornando `401 Unauthorized` sem token válido, igual a `VaultEndpoints` e `AgentEndpoints`).
   - Quando `ClientId`/`ClientSecret`/`RefreshToken` não estão configurados no provedor, os conectores não quebram e retornam o conjunto determinístico de eventos de fallback (5 eventos compatíveis com o mockup, cobrindo `Google`, `Teams` e `Outlook` com 1 par conflitante e 1 par adjacente sem falso positivo de conflito).
   - Quando credenciais OAuth estão configuradas, cada conector renova o access token apenas em memória (`tokenUri` configurado), sem persistir tokens ou segredos em `appsettings.json`, no vault (`tempVault`) ou em disco; falha OAuth `401 Unauthorized` ou configuração parcial (`ClientId` sem `RefreshToken`) retorna `VaultValidationException("calendar_auth_failed", ...)` mapeado em HTTP `400 Bad Request`.
   - Conversão de timestamps UTC (`2026-10-30T13:30:00Z`) e filtragem por data consideram o fuso configurado (`America/Sao_Paulo` / fallback Windows `E. South America Standard Time`), classificando corretamente eventos próximos da meia-noite UTC no dia local correto.
@@ -89,7 +89,7 @@ Fonte visual obrigatória: [granbrain-redesign.html](../../frontend/_imports/cla
 - **AC5 (Orquestrador, bloco `agenda-timeline` e fidelidade visual Lista/Calendário no Angular):**
   - `AgentOrchestratorService` reconhece intenções de agenda (`agenda`, `reunião`, `calendário`, `sincronizar`, `conflito`, `hoje`) e emite um `GenerativeUiBlock` com `Type = "agenda-timeline"` (`GenerativeUiBlockTypes.AgendaTimeline`) preenchido com os dados de `CalendarTodayDto`.
   - Na UI Angular (`AppComponent` + `GenerativeCanvasComponent`), o item de navegação `0003` (`Agenda & Sincronia`) aciona o carregamento da agenda real via `GranBrainApiService.getCalendarToday()`, exibindo estados `.ev.past`, `.ev.now`, `.ev.next`, `.nowline`, `.cal-now`, botões `[data-event-join]` e `[data-event-note]` (com feedback de nota gerada/aberta), alerta `.conflict` quando houver conflitos, alternância `.seg` (`Lista` <-> `Calendário`) e filtros `.chips` por provedor atualizando `[aria-pressed="true"]` e os elementos `.ev`/`.cal-ev` visíveis no DOM.
-  - Contrato DTO (`CalendarTodayDto` <-> `CalendarToday`) alinhado em nomes de propriedades camelCase no JSON, e estilos críticos (`.ev` em grid `84px 1fr`, `.cal-ev.p-google`, `.cal-ev.p-teams`, `.cal-ev.p-outlook`, `.cal-ev.clash` com borda dashed e `.conflict`) verificados em `app.spec.ts` com `getComputedStyle`.
+  - Contrato DTO (`CalendarTodayDto` <-> `CalendarToday`) alinhado em nomes de propriedades camelCase no JSON, e estilos críticos do mockup `granbrain-redesign.html` (`.ev` em grid `56px 14px minmax(0, 1fr)`, `.ev.now .dot` com `var(--ok)`, `.cal-ev.p-google`, `.cal-ev.p-teams`, `.cal-ev.p-outlook`, `.cal-ev.clash` com borda `dashed` em `var(--danger)` e `.conflict`) verificados em `app.spec.ts` com `getComputedStyle`.
 
 ## Área de impacto esperada
 
@@ -125,6 +125,8 @@ Fonte visual obrigatória: [granbrain-redesign.html](../../frontend/_imports/cla
 | D2 | Marcador idempotente `<!-- cal-id:<id> -->` em lista sem checkbox dentro de `#### Cronograma` + `## 🤝🏻 Reuniões`, protegendo parser de hábitos | Usar checkboxes `[ ]` para reuniões; sobrescrever `#### Cronograma` inteiro | Preserva 100% dos hábitos e anotações manuais em re-syncs |
 | D3 | `VaultInitializer` garante `templates/Reuniões.md` e `SyncAsync`/`CreateMeetingNoteAsync` geram `zettelkasten/Reunião - <SafeTitle>.md` preservando seções de notas | Criar nota em `daily/` ou sobrescrever a nota inteira no re-sync | Permite atas ricas no Zettelkasten sem perder anotações humanas |
 | D4 | Fidelidade completa de `/spec-frontend` para o bloco `agenda-timeline` usando tokens `:root` existentes (Bucket A) e classes de `granbrain-redesign.html` | Criar tabela simples Angular ou novos tokens CSS globais | Reutiliza tema claro/escuro e entrega Lista, Calendário, filtros, conflitos e links idênticos ao mockup |
+| D5 | Autenticação JWT Bearer (`.RequireAuthorization()`) em `/api/calendar/*` | `X-Api-Key` customizada ou autenticação dupla | Mantém 100% de paridade com `Program.cs`, `VaultEndpoints`, `AgentEndpoints` e `GranBrainApiService` |
+| D6 | Reconciliação CSS canônica via `granbrain-redesign.html` + `styles.scss` | Valores literais divergentes na prosa inicial (`84px 1fr`, tokens `--text-2`/`--radius-lg`) | Garante fidelidade fiel ao artefato Claude Design e ao tema claro/escuro de `styles.scss` |
 
 ### D1 — Arquitetura de Conectores Google + Microsoft Graph e Fallback Determinístico
 - **Pergunta:** Como os conectores Google Calendar e Microsoft Graph (Outlook + Teams) devem ser estruturados, autenticados e tratados quando não houver credenciais configuradas?
@@ -160,3 +162,11 @@ Fonte visual obrigatória: [granbrain-redesign.html](../../frontend/_imports/cla
   2. Apenas uma lista simplificada de eventos sem modo grade horária `.calwrap` nem `.conflict`.
 - **Decisão:** Opção 1 — Fidelidade completa Lista + Calendário, filtros, conflitos, `nowline`/`cal-now` e fiação do rail `0003`.
 - **Justificativa:** Entrega a aba `Agenda & Sincronia` completa para uso real no GranBrain seguindo todos os critérios do mockup aprovado sem introduzir tokens globais fora do Bucket A.
+
+### D5 — Autenticação JWT Bearer em `/api/calendar/*` (Decisão durante execução)
+- **Pergunta:** O rascunho inicial da AC1 citava `X-Api-Key`, mas `Program.cs`, `VaultEndpoints`, `AgentEndpoints` e `GranBrainApiService` usam exclusivamente JWT Bearer (`.RequireAuthorization()`). Qual mecanismo adotar?
+- **Decisão:** Usar exclusivamente JWT Bearer (`.RequireAuthorization()`) igual a `VaultEndpoints` e `AgentEndpoints`, retornando `401 Unauthorized` sem token válido, e atualizar AC1/plano.
+
+### D6 — Prevalência do CSS canônico de `granbrain-redesign.html` + `styles.scss` (Decisão durante execução)
+- **Pergunta:** A prosa inicial da spec citava `84px 1fr` e tokens inexistentes (`--text-2`, `--radius-lg`), divergindo de `granbrain-redesign.html` (`56px 14px minmax(0, 1fr)`, `--fg`/`--info`/`--ok`/`--warn`/`--danger`). Qual deve prevalecer?
+- **Decisão:** Seguir exatamente os tokens e CSS de `granbrain-redesign.html` + `styles.scss` (`56px 14px minmax(0, 1fr)`, `--fg`/`--info`/`--ok`/`--warn`/`--danger`) e alinhar AC5 e `app.spec.ts` a eles.

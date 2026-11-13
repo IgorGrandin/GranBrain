@@ -31,6 +31,8 @@ isProject: false
 | D2 | Marcador `<!-- cal-id:<id> -->` em lista sem checkbox na Nota Diária | Inserir em `#### Cronograma` (ordem cronológica) e em `## 🤝🏻 Reuniões` antes de `dataview` (ou criar `## 🤝🏻 Reuniões` no final se ausente); `ParseHabitsFromLines` e `ToggleHabitAsync` ignoram `<!-- cal-id:` e operam apenas dentro de `#### Cronograma` |
 | D3 | `templates/Reuniões.md` não destrutivo + ata em `zettelkasten/Reunião - <SafeTitle>.md` | `VaultInitializer` só cria `templates/Reuniões.md` se faltar; `CreateMeetingNoteAsync` valida `TargetFolder` bruto com `VaultPathGuard.ResolveSafePath` antes de sanitizar título e preserva `## 📝 Discussão & Anotações` e `## ✅ Plano de Ação & Tarefas` |
 | D4 | Bloco `agenda-timeline` completo (Lista + Calendário, filtros, conflitos, `nowline`) | Seguir `.seg`, `.chips`, `.conflict`, `.timeline`, `.ev`, `.nowline`, `.calwrap`, `.cal-grid`, `.cal-ev` com tokens `:root` existentes (Bucket A) e conectar item `0003` em `AppComponent` |
+| D5 | Autenticação JWT Bearer (`.RequireAuthorization()`) em `/api/calendar/*` | Mesma autenticação JWT Bearer de `VaultEndpoints`/`AgentEndpoints` (`401` sem token válido); `GranBrainApiService` envia `Authorization: Bearer` |
+| D6 | CSS canônico de `granbrain-redesign.html` + `styles.scss` | `.ev` em `56px 14px minmax(0, 1fr)`, `.ev.now .dot` (`var(--ok)`), `.cal-ev` com `--info`/`--accent`/`--warn`/`--danger` |
 
 ## 3. Arquitetura
 
@@ -78,7 +80,7 @@ Todos os códigos abaixo respeitam o middleware de exceções em `backend/src/Gr
 
 | AC | Fatia dona | Comportamento exato exigido | Verificação vinculada (nome + comportamento + sinal negativo) |
 | :--- | :--- | :--- | :--- |
-| AC1 | Fatia 1 & Fatia 2 | `GET /api/calendar/today` e `POST /api/calendar/sync` autenticam por `X-Api-Key` (`401` sem chave); conectores renovam token só em memória, usam fallback determinístico de 5 eventos sem segredos, filtram data em TZ SP/Windows e não marcam adjacência estrita (`09:00–09:30` + `09:30–10:30`) como conflito; credencial parcial ou `401` OAuth gera `calendar_auth_failed` (400) | `CalendarSyncServiceTests` + `ApiSecurityAndAgentTests`: `401` sem API key, zero arquivos de token em `tempVault`, `appsettings.json` com credenciais vazias, `2026-10-30T13:30:00Z` -> `10:30`, adjacentes sem conflito, `calendar_auth_failed` -> 400 |
+| AC1 | Fatia 1 & Fatia 2 | `GET /api/calendar/today` e `POST /api/calendar/sync` autenticam por JWT Bearer (`.RequireAuthorization()`, `401` sem token); conectores renovam token só em memória, usam fallback determinístico de 5 eventos sem segredos, filtram data em TZ SP/Windows e não marcam adjacência estrita (`09:00–09:30` + `09:30–10:30`) como conflito; credencial parcial ou `401` OAuth gera `calendar_auth_failed` (400) | `CalendarSyncServiceTests` + `ApiSecurityAndAgentTests`: `401` sem JWT Bearer, zero arquivos de token em `tempVault`, `appsettings.json` com credenciais vazias, `2026-10-30T13:30:00Z` -> `10:30`, adjacentes sem conflito, `calendar_auth_failed` -> 400 |
 | AC2 | Fatia 1 | `SyncAsync` insere `<!-- cal-id:<id> -->` em `#### Cronograma` e `## 🤝🏻 Reuniões` antes de `dataview` (ou cria `## 🤝🏻 Reuniões` no fallback daily note); re-sync não duplica linhas e `ParseHabitsFromLines`/`ToggleHabitAsync` isolam `#### Cronograma` ignorando `<!-- cal-id:` | `CalendarSyncServiceTests` + `ObsidianVaultServiceTests`: sequência `SyncAsync` -> `ToggleHabitAsync` -> `SyncAsync`, `ToggleHabitAsync("Revisão de arquitetura")` lança `habit_not_found`, parser não lê fora de `#### Cronograma` mesmo com `habits.Count == 0` |
 | AC3 | Fatia 1 & Fatia 2 | `VaultInitializer` garante `templates/Reuniões.md` não destrutivamente; `CreateMeetingNoteAsync` gera/atualiza `zettelkasten/Reunião - <SafeTitle>.md` preservando `## 📝 Discussão & Anotações` e `## ✅ Plano de Ação & Tarefas`; id desconhecido lança `calendar_event_not_found` (404) | `VaultInitializerTests` + `CalendarSyncServiceTests` + `ApiSecurityAndAgentTests`: template preservado se existente, anotações manuais intactas após re-sync, `POST /api/calendar/events/inexistente/note` -> 404 |
 | AC4 | Fatia 1 & Fatia 2 | `TargetFolder` bruto validado por `VaultPathGuard.ResolveSafePath` antes de sanitizar título; `date` inválido retorna `invalid_calendar_date` (400) | `CalendarSyncServiceTests` + `ApiSecurityAndAgentTests`: `TargetFolder = "../../evil"` -> 400 `vault_path_violation`, `date=30-10-2026` -> 400 `invalid_calendar_date` |
@@ -88,7 +90,7 @@ Todos os códigos abaixo respeitam o middleware de exceções em `backend/src/Gr
 
 | Dimensão | Risco identificado | Mitigação planejada |
 | :--- | :--- | :--- |
-| Segurança / Autenticação | Exposição de `/api/calendar/*` sem API key ou gravação acidental de tokens em disco | `CalendarEndpoints` no grupo autenticado `RequireAuthorization`/API key filter de `Program.cs`; tokens apenas em `ConcurrentDictionary` em memória e teste assertando `appsettings.json` + ausência de arquivos extra em `tempVault` |
+| Segurança / Autenticação | Exposição de `/api/calendar/*` sem JWT ou gravação acidental de tokens em disco | `CalendarEndpoints` com `.RequireAuthorization()` (JWT Bearer, igual a `VaultEndpoints`/`AgentEndpoints`); tokens apenas em `ConcurrentDictionary` em memória e teste assertando `appsettings.json` + ausência de arquivos extra em `tempVault` |
 | Vault Jail / Traversal | `SanitizeFileName` remover `../` de `TargetFolder` antes de validar limite do vault | Validar `options.MeetingNotesFolder` / `TargetFolder` bruto via `VaultPathGuard.ResolveSafePath` antes de concatenar `Reunião - <SafeTitle>.md` |
 | Corrupção de Hábitos | Eventos sincronizados interpretados como hábitos em `ObsidianVaultService` | Exigir marcador `<!-- cal-id:` sem checkbox, filtrar `<!-- cal-id:` em `ParseHabitsFromLines` e `ToggleHabitAsync`, e restringir escopo estritamente à seção `#### Cronograma` (corrigindo bug da linha 1070 quando `habits.Count == 0`) |
 | Fuso horário e Adjacência | Eventos perto da meia-noite UTC caírem no dia errado no Windows/Linux ou back-to-back virarem conflito | Resolver TZ com fallback `America/Sao_Paulo` / `E. South America Standard Time`; usar `a.Start < b.End && b.Start < a.End` (estrito `<`) |
@@ -130,7 +132,7 @@ Todos os códigos abaixo respeitam o middleware de exceções em `backend/src/Gr
   - `backend/tests/GranBrain.UnitTests/CalendarSyncServiceTests.cs`
 - **Discriminante:** Sem `MicrosoftGraphCalendarConnector` classificar `Teams` vs `Outlook` e sem a guarda de `#### Cronograma` + `<!-- cal-id:` em `ObsidianVaultService.ParseHabitsFromLines`, ou conectores duplicam código ou reuniões quebram o módulo de hábitos.
 - **Focused checks:**
-  - `dotnet test backend/GranBrain.slnx --filter "FullyQualifiedName~CalendarSyncServiceTests|FullyQualifiedName~ObsidianVaultServiceTests|FullyQualifiedName~VaultInitializerTests"` -> todos verdes, zero warnings de nullability ou falhas.
+  - `dotnet test backend/GranBrain.sln --filter "FullyQualifiedName~CalendarSyncServiceTests|FullyQualifiedName~ObsidianVaultServiceTests|FullyQualifiedName~VaultInitializerTests"` -> todos verdes, zero warnings de nullability ou falhas.
 - **Reuso:**
 
 | Símbolo / Padrão Existente | Caminho | Como reutilizar nesta fatia |
@@ -146,7 +148,7 @@ Todos os códigos abaixo respeitam o middleware de exceções em `backend/src/Gr
 - **Pre-requisitos:** Fatia 1 concluída
 - **Owner:** executor backend API C#
 - **Parallel:** `false` (depende dos DTOs e interfaces da Fatia 1)
-- **ACs:** AC1 (autenticação `401` sem `X-Api-Key`, HTTP 400 para `calendar_auth_failed`), AC3 (`404` para `calendar_event_not_found`), AC4 (`400` para `vault_path_violation` e `invalid_calendar_date`), AC5 (`AgentOrchestratorService` emitindo `agenda-timeline`)
+- **ACs:** AC1 (autenticação `401` sem JWT Bearer, HTTP 400 para `calendar_auth_failed`), AC3 (`404` para `calendar_event_not_found`), AC4 (`400` para `vault_path_violation` e `invalid_calendar_date`), AC5 (`AgentOrchestratorService` emitindo `agenda-timeline`)
 - **Shared contracts:**
   - `GET /api/calendar/today?date=YYYY-MM-DD` -> `CalendarTodayDto`
   - `POST /api/calendar/sync` -> `CalendarSyncResultDto`
@@ -158,15 +160,15 @@ Todos os códigos abaixo respeitam o middleware de exceções em `backend/src/Gr
   - `backend/src/GranBrain.Api/appsettings.json` (seção `"Calendar"` com credenciais explicitamente vazias `""`)
   - `backend/src/GranBrain.Infrastructure/Agents/AgentOrchestratorService.cs` (injeção de `ICalendarSyncService` e branch de intenção de agenda)
   - `backend/tests/GranBrain.UnitTests/ApiSecurityAndAgentTests.cs`
-- **Composição:** `Program.cs` registra `IHttpClientFactory`, `CalendarOptions`, `GoogleCalendarConnector`, `MicrosoftGraphCalendarConnector`, `CalendarSyncService` e `CalendarEndpoints` sob o filtro/middleware de API key e tratamento de exceções (`400`/`401`/`404`), ligando HTTP + `AgentOrchestratorService` + `CalendarSyncService` + `ObsidianVaultService` sem mocks no núcleo do vault.
+- **Composição:** `Program.cs` registra `IHttpClientFactory`, `CalendarOptions`, `GoogleCalendarConnector`, `MicrosoftGraphCalendarConnector`, `CalendarSyncService` e `CalendarEndpoints` sob `.RequireAuthorization()` (JWT Bearer) e tratamento de exceções (`400`/`401`/`404`), ligando HTTP + `AgentOrchestratorService` + `CalendarSyncService` + `ObsidianVaultService` sem mocks no núcleo do vault.
 - **Discriminante:** Sem registrar os endpoints no pipeline autenticado e injetar `ICalendarSyncService` no `AgentOrchestratorService`, a UI Angular (`0003`) e o chat permanecem desconectados do backend real.
 - **Focused checks:**
-  - `dotnet test backend/GranBrain.slnx --filter "FullyQualifiedName~ApiSecurityAndAgentTests"` -> testa HTTP `401`, `200`, `400`, `404` via `WebApplicationFactory` e emissão do bloco `agenda-timeline`.
+  - `dotnet test backend/GranBrain.sln --filter "FullyQualifiedName~ApiSecurityAndAgentTests"` -> testa HTTP `401`, `200`, `400`, `404` via `WebApplicationFactory` e emissão do bloco `agenda-timeline`.
 - **Reuso:**
 
 | Símbolo / Padrão Existente | Caminho | Como reutilizar nesta fatia |
 | :--- | :--- | :--- |
-| Grupo autenticado + mapeamento em `Program.cs` | `backend/src/GranBrain.Api/Program.cs` | Reutilizar exatamente a mesma autenticação por `X-Api-Key` e mapeador de exceções existente |
+| Grupo autenticado + mapeamento em `Program.cs` | `backend/src/GranBrain.Api/Program.cs` | Reutilizar exatamente a mesma autenticação JWT Bearer (`.RequireAuthorization()`) e mapeador de exceções existente |
 | `VaultEndpoints.cs` | `backend/src/GranBrain.Api/Endpoints/VaultEndpoints.cs` | Seguir convenção Minimal API (`MapGroup("/api/calendar")`, `WithName`, `Produces`) |
 | `AgentOrchestratorService` intenções e resposta | `backend/src/GranBrain.Infrastructure/Agents/AgentOrchestratorService.cs` | Seguir o padrão do branch de `Brainstorm` / `HabitChecklist` ao compor `AgentChatResponse` com `GenerativeUiBlock` |
 
@@ -213,15 +215,15 @@ Todos os códigos abaixo respeitam o middleware de exceções em `backend/src/Gr
 - **Write-set:** somente diagnóstico/verificação (nenhum arquivo editado nesta fatia; correções vão para slice dedicado antes do re-run)
 - **Discriminante:** Valida que o último commit compila do zero e passa em todas as suítes .NET e Angular sem depender de artefatos locais não commitados.
 - **Focused checks:**
-  - `dotnet build backend/GranBrain.slnx -c Release`
-  - `dotnet test backend/GranBrain.slnx -c Release`
+  - `dotnet build backend/GranBrain.sln -c Release`
+  - `dotnet test backend/GranBrain.sln -c Release`
   - `npm --prefix frontend test -- --watch=false`
   - `npm --prefix frontend run build`
 - **Reuso:**
 
 | Símbolo / Padrão Existente | Caminho | Como reutilizar nesta fatia |
 | :--- | :--- | :--- |
-| Solução `GranBrain.slnx` e scripts Angular | `backend/GranBrain.slnx` e `frontend/package.json` | Executar build e test oficiais do repositório no commit final |
+| Solução `GranBrain.sln` e scripts Angular | `backend/GranBrain.sln` e `frontend/package.json` | Executar build e test oficiais do repositório no commit final |
 
 ## 5. Testes
 
@@ -242,13 +244,13 @@ Todos os códigos abaixo respeitam o middleware de exceções em `backend/src/Gr
    - Asserts negativos: requisição sem `X-Api-Key` retorna `401 Unauthorized`; `POST /api/calendar/events/inexistente/note` retorna `404 Not Found`; `date=invalida` ou `targetFolder="../../evil"` retorna `400 Bad Request`; falha OAuth simulada retorna `400 Bad Request` com `error = "calendar_auth_failed"`.
 5. **Testes Frontend Angular + Paridade Visual (`/spec-frontend`) (`frontend/src/app/app.spec.ts` — alvo: `AppComponent`, `GenerativeCanvasComponent`, `styles.scss`)**
    - Fixture: JSON compatível propriedade-a-propriedade com o contrato camelCase de `CalendarTodayDto` (`.ev.past`, `.ev.now`, `.ev.next`, 1 conflito).
-   - Asserts positivos: clique no rail `0003` chama `GET /api/calendar/today`; modo Lista renderiza `.ev.past`, `.ev.now`, `.ev.next`, `.nowline`, `.conflict`, `[data-event-join]` e `[data-event-note]`; alternância `.seg` para `Calendário` renderiza `.calwrap`, `.cal-grid`, `.cal-now` e `.cal-ev`; clique no filtro `.chips` (`Teams`) define `aria-pressed="true"` e reduz a quantidade de `.ev`/`.cal-ev` no DOM; `getComputedStyle` valida `grid-template-columns` de `.ev`, cores de `.cal-ev.p-google`, `.cal-ev.p-teams`, `.cal-ev.p-outlook`, `.ev.now .dot`, `.conflict` e borda `dashed` em `.cal-ev.clash`.
+   - Asserts positivos: clique no rail `0003` chama `GET /api/calendar/today`; modo Lista renderiza `.ev.past`, `.ev.now`, `.ev.next`, `.nowline`, `.conflict`, `[data-event-join]` e `[data-event-note]`; alternância `.seg` para `Calendário` renderiza `.calwrap`, `.cal-grid`, `.cal-now` e `.cal-ev`; clique no filtro `.chips` (`Teams`) define `aria-pressed="true"` e reduz a quantidade de `.ev`/`.cal-ev` no DOM; `getComputedStyle` valida `grid-template-columns` de `.ev` (`56px 14px ...`), cores de `.cal-ev.p-google`, `.cal-ev.p-teams`, `.cal-ev.p-outlook`, `.ev.now .dot`, `.conflict` e borda `dashed` em `.cal-ev.clash`.
 
 ## 6. Gate por gatilho
 
 | Gatilho | Aplicável? | Comando / Justificativa |
 | :--- | :--- | :--- |
-| `.NET 10` (`backend/**`) | **Sim (Obrigatório)** | `dotnet build backend/GranBrain.slnx -c Release` e `dotnet test backend/GranBrain.slnx -c Release` |
+| `.NET 10` (`backend/**`) | **Sim (Obrigatório)** | `dotnet build backend/GranBrain.sln -c Release` e `dotnet test backend/GranBrain.sln -c Release` |
 | `Ionic Angular` (`frontend/**`) | **Sim (Obrigatório)** | `npm --prefix frontend test -- --watch=false` e `npm --prefix frontend run build` |
 | `Pipeline 158 / BrixBroker` | Dispensado | Repositório atual é `GranBrain` (`.NET 10` + `Angular`), não o monólito BrixBroker |
 | `Docker / Containers` | Dispensado | WI 0003 não altera `Dockerfile` ou `docker-compose` |
