@@ -35,6 +35,11 @@ if [[ -z "${CLOUDFLARE_TUNNEL_TOKEN:-}" || "${CLOUDFLARE_TUNNEL_TOKEN}" == REPLA
     exit 1
 fi
 
+if [[ ! -f "${REPO_ROOT}/deploy/rclone/rclone.conf" ]]; then
+    echo "Erro: ${REPO_ROOT}/deploy/rclone/rclone.conf não encontrado. Configure o remote do Google Drive via rclone antes de subir os containers." >&2
+    exit 1
+fi
+
 if command -v ufw >/dev/null 2>&1; then
     ufw default deny incoming
     ufw default allow outgoing

@@ -70,6 +70,7 @@ public sealed class DeployInfrastructureTests
         Assert.Contains("/docker-entrypoint.d/40-generate-runtime-config.sh", frontendDockerfile);
 
         _ = ReadRepoFile(".dockerignore");
+        _ = ReadRepoFile("backend/.dockerignore");
 
         var compose = ReadRepoFile("docker-compose.yml");
         Assert.Contains("granbrain-net:", compose);
@@ -142,6 +143,7 @@ public sealed class DeployInfrastructureTests
     {
         var bisyncScript = ReadRepoFile("deploy/rclone/rclone-bisync-loop.sh");
         Assert.Contains("/var/run/granbrain/bisync.lock", bisyncScript);
+        Assert.Contains("flock -n", bisyncScript);
         Assert.Contains("/var/run/granbrain/.bisync-initialized", bisyncScript);
         Assert.Contains("rclone bisync", bisyncScript);
         Assert.Contains("--resync", bisyncScript);

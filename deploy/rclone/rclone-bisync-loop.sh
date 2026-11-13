@@ -19,45 +19,35 @@ write_status() {
     mv -f "$TMP_STATUS_FILE" "$STATUS_FILE"
 }
 
-cleanup_lock() {
-    rmdir "$LOCK_FILE" 2>/dev/null || rm -f "$LOCK_FILE" 2>/dev/null || true
-}
+run_bisync_cycle() {
+    resync_arg=""
+    if [ ! -f "$INIT_MARKER" ]; then
+        resync_arg="--resync"
+    fi
 
-trap cleanup_lock EXIT INT TERM
+    if rclone bisync "$LOCAL_VAULT" "$RCLONE_REMOTE" \
+        $resync_arg \
+        --resilient \
+        --conflict-resolve newer \
+        --create-empty-src-dirs \
+        --filter "- .granbrain-*" \
+        --filter "- .obsidian/workspace*"; then
+        touch "$INIT_MARKER"
+        write_status "ok" "\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\""
+    else
+        write_status "error" "null"
+    fi
+}
 
 if [ ! -f "$STATUS_FILE" ]; then
     write_status "pending" "null"
 fi
 
 while true; do
-    if mkdir "$LOCK_FILE" 2>/dev/null; then
-        if [ ! -f "$INIT_MARKER" ]; then
-            if rclone bisync "$LOCAL_VAULT" "$RCLONE_REMOTE" \
-                --resync \
-                --resilient \
-                --conflict-resolve newer \
-                --create-empty-src-dirs \
-                --filter "- .granbrain-*" \
-                --filter "- .obsidian/workspace*"; then
-                touch "$INIT_MARKER"
-                write_status "ok" "\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\""
-            else
-                write_status "error" "null"
-            fi
-        else
-            if rclone bisync "$LOCAL_VAULT" "$RCLONE_REMOTE" \
-                --resilient \
-                --conflict-resolve newer \
-                --create-empty-src-dirs \
-                --filter "- .granbrain-*" \
-                --filter "- .obsidian/workspace*"; then
-                write_status "ok" "\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\""
-            else
-                write_status "error" "null"
-            fi
-        fi
-        cleanup_lock
-    fi
+    (
+        flock -n 9 || exit 0
+        run_bisync_cycle
+    ) 9>"$LOCK_FILE"
 
     sleep "$SYNC_INTERVAL"
 done

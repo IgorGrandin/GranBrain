@@ -20,3 +20,4 @@ Thumbs.db
 appsettings.Development.local.json
 .env
 .env.local
+deploy/rclone/rclone.conf
