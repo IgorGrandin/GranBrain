@@ -841,4 +841,163 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       expect(pastChildren[pastChildren.length - 1].classList.contains('nowline')).toBeTrue();
     });
   });
+
+  describe('Fatia 3 — Runtime Config, Rail Health Badges & Reconnect Toasts', () => {
+    let fixture: ComponentFixture<AppComponent>;
+    let component: AppComponent;
+    let httpMock: HttpTestingController;
+    let apiService: GranBrainApiService;
+
+    beforeEach(async () => {
+      await TestBed.configureTestingModule({
+        imports: [AppComponent],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideIonicAngular(),
+          GranBrainApiService,
+          VoiceService
+        ]
+      }).compileComponents();
+
+      httpMock = TestBed.inject(HttpTestingController);
+      apiService = TestBed.inject(GranBrainApiService);
+      fixture = TestBed.createComponent(AppComponent);
+      component = fixture.componentInstance;
+    });
+
+    afterEach(() => {
+      delete (window as any).__GRANBRAIN_CONFIG__;
+      httpMock.verify();
+    });
+
+    it('GranBrainApiService normalizes runtime apiBaseUrl across trailing slashes, /api suffix and empty fallback', () => {
+      expect(GranBrainApiService.resolveApiBaseUrl('https://api.granbrain.com.br')).toBe('https://api.granbrain.com.br/api');
+      expect(GranBrainApiService.resolveApiBaseUrl('https://api.granbrain.com.br/')).toBe('https://api.granbrain.com.br/api');
+      expect(GranBrainApiService.resolveApiBaseUrl('https://api.granbrain.com.br/api/')).toBe('https://api.granbrain.com.br/api');
+      expect(GranBrainApiService.resolveApiBaseUrl('')).toBe('/api');
+      expect(GranBrainApiService.resolveApiBaseUrl(undefined)).toBe('/api');
+
+      (window as any).__GRANBRAIN_CONFIG__ = { apiBaseUrl: 'https://api.granbrain.com.br/' };
+      apiService.getHealth().subscribe();
+      const req = httpMock.expectOne('https://api.granbrain.com.br/api/health');
+      expect(req.request.method).toBe('GET');
+      req.flush({
+        status: 'ok',
+        service: 'GranBrain.Api',
+        environment: 'Production',
+        vaultAccessible: true,
+        tunnelStatus: 'ok',
+        syncStatus: 'ok',
+        lastSyncedAtUtc: '2026-11-13T18:00:00Z'
+      });
+    });
+
+    it('AppComponent renders .rail-foot connectivity and sync badges from GET /api/health, normalizes runtime apiBaseUrl and emits warn/ok toasts on disconnect and reconnect', () => {
+      fixture.detectChanges();
+      component.isAuthenticated = true;
+      fixture.detectChanges();
+
+      // 1. First successful health check -> updates 3 badges to .pill.ok and emits NO toast
+      component.refreshHealth();
+      const okReq = httpMock.expectOne('/api/health');
+      expect(okReq.request.method).toBe('GET');
+      okReq.flush({
+        status: 'ok',
+        service: 'GranBrain.Api',
+        environment: 'Production',
+        vaultAccessible: true,
+        tunnelStatus: 'ok',
+        syncStatus: 'ok',
+        lastSyncedAtUtc: '2026-11-13T18:00:00Z'
+      });
+      fixture.detectChanges();
+
+      expect(component.toasts.length).toBe(0);
+
+      const vaultBadge = fixture.debugElement.query(By.css('[data-health-vault]')).nativeElement as HTMLElement;
+      const tunnelBadge = fixture.debugElement.query(By.css('[data-health-tunnel]')).nativeElement as HTMLElement;
+      const syncBadge = fixture.debugElement.query(By.css('[data-health-sync]')).nativeElement as HTMLElement;
+      const refreshBtn = fixture.debugElement.query(By.css('[data-health-refresh]'));
+
+      expect(refreshBtn).not.toBeNull();
+      expect(vaultBadge.classList.contains('pill')).toBeTrue();
+      expect(vaultBadge.classList.contains('ok')).toBeTrue();
+      expect(vaultBadge.textContent).toContain('Ativo');
+
+      expect(tunnelBadge.classList.contains('pill')).toBeTrue();
+      expect(tunnelBadge.classList.contains('ok')).toBeTrue();
+      expect(tunnelBadge.textContent).toContain('HTTPS · Tunnel');
+
+      expect(syncBadge.classList.contains('pill')).toBeTrue();
+      expect(syncBadge.classList.contains('ok')).toBeTrue();
+      expect(syncBadge.textContent).toContain('Drive Sync');
+
+      // Validate Bucket A computed tokens on .rail-foot, .user-chip, .pill.ok
+      const railFootEl = fixture.debugElement.query(By.css('.rail-foot')).nativeElement as HTMLElement;
+      const userChipEl = fixture.debugElement.query(By.css('.user-chip')).nativeElement as HTMLElement;
+      expect(getComputedStyle(railFootEl).fontSize).toBe('12.5px');
+      expect(getComputedStyle(userChipEl).borderRadius).not.toBe('0px');
+      expect(getComputedStyle(vaultBadge).backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+
+      // 2. Network failure -> badges switch to .pill.danger and .toast.warn is rendered
+      component.refreshHealth();
+      const errReq = httpMock.expectOne('/api/health');
+      errReq.error(new ProgressEvent('error'));
+      fixture.detectChanges();
+
+      expect(vaultBadge.classList.contains('danger')).toBeTrue();
+      expect(vaultBadge.textContent).toContain('Offline');
+      expect(tunnelBadge.classList.contains('danger')).toBeTrue();
+      expect(tunnelBadge.textContent).toContain('Sem Rede');
+      expect(syncBadge.classList.contains('danger')).toBeTrue();
+      expect(syncBadge.textContent).toContain('Erro Sync');
+
+      const warnToast = fixture.debugElement.query(By.css('.toasts .toast.warn'));
+      expect(warnToast).not.toBeNull();
+      expect(warnToast.nativeElement.textContent).toContain('Conexão com a API perdida. Tentando reconectar...');
+      expect(getComputedStyle(warnToast.nativeElement).backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+
+      // 3. Reconnection -> badges return to .pill.ok and .toast (ok) is emitted
+      component.refreshHealth();
+      const reconnectReq = httpMock.expectOne('/api/health');
+      reconnectReq.flush({
+        status: 'ok',
+        service: 'GranBrain.Api',
+        environment: 'Production',
+        vaultAccessible: true,
+        tunnelStatus: 'ok',
+        syncStatus: 'ok',
+        lastSyncedAtUtc: '2026-11-13T18:05:00Z'
+      });
+      fixture.detectChanges();
+
+      expect(vaultBadge.classList.contains('ok')).toBeTrue();
+      expect(tunnelBadge.classList.contains('ok')).toBeTrue();
+      expect(syncBadge.classList.contains('ok')).toBeTrue();
+      expect(component.toasts.some((t) => t.type === 'ok' && t.message === 'Conexão segura restabelecida com o cofre.')).toBeTrue();
+
+      // 4. Degraded + local + pending states map to .pill.warn tokens
+      component.refreshHealth();
+      const warnReq = httpMock.expectOne('/api/health');
+      warnReq.flush({
+        status: 'degraded',
+        service: 'GranBrain.Api',
+        environment: 'Development',
+        vaultAccessible: true,
+        tunnelStatus: 'local',
+        syncStatus: 'pending',
+        lastSyncedAtUtc: null
+      });
+      fixture.detectChanges();
+
+      expect(vaultBadge.classList.contains('warn')).toBeTrue();
+      expect(vaultBadge.textContent).toContain('Degradado');
+      expect(tunnelBadge.classList.contains('warn')).toBeTrue();
+      expect(tunnelBadge.textContent).toContain('Local');
+      expect(syncBadge.classList.contains('warn')).toBeTrue();
+      expect(syncBadge.textContent).toContain('Sync Pendente');
+      expect(getComputedStyle(vaultBadge).backgroundColor).not.toBe(getComputedStyle(tunnelBadge).color);
+    });
+  });
 });

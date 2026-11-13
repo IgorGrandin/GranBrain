@@ -247,3 +247,17 @@ export interface VaultOverview {
   kanbanBoards: KanbanBoard[];
   recentNotes: VaultNoteSummary[];
 }
+
+export interface SystemHealthStatus {
+  status: 'ok' | 'degraded' | string;
+  service: string;
+  environment: string;
+  vaultAccessible: boolean;
+  tunnelStatus: 'ok' | 'local' | string;
+  syncStatus: 'ok' | 'pending' | 'error' | string;
+  lastSyncedAtUtc?: string | null;
+}
+
+export interface GranBrainRuntimeConfig {
+  apiBaseUrl?: string;
+}

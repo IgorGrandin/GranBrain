@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: fatia-3-frontend-runtime-config-and-rail-health-ui
     content: "Implementar runtime-config.js, normalização de apiBaseUrl em GranBrainApiService, badges [data-health-vault]/[data-health-tunnel]/[data-health-sync] no .rail-foot e toasts de queda/reconexão em AppComponent + testes Karma"
-    status: pending
+    status: completed
   - id: gate
     content: "Executar suítes backend dotnet test e frontend npm test -- --watch=false, além de dotnet build / npm run build e validação completa contra o último commit em árvore limpa"
     status: pending

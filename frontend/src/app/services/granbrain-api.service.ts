@@ -11,6 +11,7 @@ import {
   CalendarSyncResult,
   CalendarToday,
   FleetingIdeaCaptureRequest,
+  GranBrainRuntimeConfig,
   HabitItem,
   IdeaItem,
   IdeaPromoteRequest,
@@ -19,18 +20,45 @@ import {
   KanbanBoard,
   LoginRequest,
   LoginResponse,
+  SystemHealthStatus,
   VaultNoteSummary,
   VaultOverview
 } from '../models/granbrain.models';
+
+declare global {
+  interface Window {
+    __GRANBRAIN_CONFIG__?: GranBrainRuntimeConfig;
+  }
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class GranBrainApiService {
-  private readonly baseUrl = '/api';
   private tokenKey = 'granbrain_token';
 
   constructor(private http: HttpClient) {}
+
+  public static resolveApiBaseUrl(rawUrl?: string | null): string {
+    const trimmed = (rawUrl ?? '').trim().replace(/\/+$/, '');
+    if (!trimmed) {
+      return '/api';
+    }
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+  }
+
+  public resolveApiBaseUrl(rawUrl?: string | null): string {
+    return GranBrainApiService.resolveApiBaseUrl(rawUrl);
+  }
+
+  private get baseUrl(): string {
+    const configured = typeof window !== 'undefined' ? window.__GRANBRAIN_CONFIG__?.apiBaseUrl : undefined;
+    return GranBrainApiService.resolveApiBaseUrl(configured);
+  }
+
+  public getHealth(): Observable<SystemHealthStatus> {
+    return this.http.get<SystemHealthStatus>(`${this.baseUrl}/health`);
+  }
 
   public getToken(): string | null {
     try {

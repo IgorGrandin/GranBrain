@@ -11,6 +11,7 @@ import {
   GenerativeUiBlock,
   HabitItem,
   IdeasOverview,
+  SystemHealthStatus,
   VaultNoteSummary
 } from './models/granbrain.models';
 import { GenerativeCanvasComponent } from './components/generative-canvas/generative-canvas.component';
@@ -63,6 +64,9 @@ export class AppComponent implements OnInit, OnDestroy {
   public currentBlocks: GenerativeUiBlock[] = [];
   public isListening = false;
   public toasts: ToastNotification[] = [];
+  public systemHealth: SystemHealthStatus | null = null;
+  public isBackendOffline = false;
+  public healthChecking = false;
 
   private toastIdCounter = 0;
   private subs = new Subscription();
@@ -85,11 +89,60 @@ export class AppComponent implements OnInit, OnDestroy {
     return `[${this.activeModel}] Digite comando ou 'cli: pergunta'...`;
   }
 
+  public get vaultBadgeClass(): string {
+    if (this.isBackendOffline || (this.systemHealth && !this.systemHealth.vaultAccessible)) {
+      return 'danger';
+    }
+    if (this.systemHealth?.status === 'degraded') {
+      return 'warn';
+    }
+    return 'ok';
+  }
+
+  public get vaultBadgeLabel(): string {
+    if (this.isBackendOffline || (this.systemHealth && !this.systemHealth.vaultAccessible)) {
+      return 'Offline';
+    }
+    if (this.systemHealth?.status === 'degraded') {
+      return 'Degradado';
+    }
+    return 'Ativo';
+  }
+
+  public get tunnelBadgeClass(): string {
+    if (this.isBackendOffline) {
+      return 'danger';
+    }
+    return this.systemHealth?.tunnelStatus === 'ok' ? 'ok' : 'warn';
+  }
+
+  public get tunnelBadgeLabel(): string {
+    if (this.isBackendOffline) {
+      return 'Sem Rede';
+    }
+    return this.systemHealth?.tunnelStatus === 'ok' ? 'HTTPS · Tunnel' : 'Local';
+  }
+
+  public get syncBadgeClass(): string {
+    if (this.isBackendOffline || this.systemHealth?.syncStatus === 'error') {
+      return 'danger';
+    }
+    return this.systemHealth?.syncStatus === 'ok' ? 'ok' : 'warn';
+  }
+
+  public get syncBadgeLabel(): string {
+    if (this.isBackendOffline || this.systemHealth?.syncStatus === 'error') {
+      return 'Erro Sync';
+    }
+    return this.systemHealth?.syncStatus === 'ok' ? 'Drive Sync' : 'Sync Pendente';
+  }
+
   public ngOnInit(): void {
     this.isAuthenticated = this.api.isAuthenticated;
     if (this.isAuthenticated) {
       this.loadProviders();
       this.loadInitialOverview();
+      this.refreshHealth();
     }
 
     // Subscribe to voice transcripts
@@ -152,6 +205,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.showToast('Conectado com sucesso ao cofre!', 'ok');
         this.loadProviders();
         this.loadInitialOverview();
+        this.refreshHealth();
       },
       error: (err) => {
         this.loading = false;
@@ -166,7 +220,30 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isAuthenticated = false;
     this.messages = [];
     this.currentBlocks = [];
+    this.systemHealth = null;
+    this.isBackendOffline = false;
     this.showToast('Sessão encerrada', 'ok');
+  }
+
+  public refreshHealth(): void {
+    this.healthChecking = true;
+    this.api.getHealth().subscribe({
+      next: (health) => {
+        this.healthChecking = false;
+        this.systemHealth = health;
+        if (this.isBackendOffline) {
+          this.isBackendOffline = false;
+          this.showToast('Conexão segura restabelecida com o cofre.', 'ok');
+        }
+      },
+      error: () => {
+        this.healthChecking = false;
+        if (!this.isBackendOffline) {
+          this.isBackendOffline = true;
+          this.showToast('Conexão com a API perdida. Tentando reconectar...', 'warn');
+        }
+      }
+    });
   }
 
   public selectProvider(providerId: string): void {
