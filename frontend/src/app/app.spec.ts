@@ -1062,7 +1062,7 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
             jobId: 'InboxTriageJob',
             title: 'Inbox Triage',
             scheduleLabel: 'A cada 2h e sob demanda',
-            status: '2 no inbox',
+            status: 'Pendente',
             statusTone: 'warn',
             lastRunSummary: '2 arquivo(s) aguardando triagem'
           },
@@ -1070,8 +1070,8 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
             jobId: 'NightlyClosureJob',
             title: 'Nightly Closure',
             scheduleLabel: 'Diário às 23:30',
-            status: 'Agendado',
-            statusTone: 'accent',
+            status: 'Em dia',
+            statusTone: 'ok',
             lastRunSummary: 'Pronto para fechamento noturno'
           }
         ],
@@ -1081,14 +1081,14 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
             relativePath: 'inbox/nota-reuniao.md',
             suggestedDestination: 'zettelkasten/Reunião - nota-reuniao.md',
             tag: 'Reunião',
-            extension: '.md'
+            extension: 'md'
           },
           {
             fileName: 'ideia-rapida.txt',
             relativePath: 'inbox/ideia-rapida.txt',
             suggestedDestination: 'zettelkasten/ideia-rapida.md',
             tag: 'Ideia',
-            extension: '.txt'
+            extension: 'txt'
           }
         ],
         logs: [
@@ -1096,7 +1096,7 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
             id: 'log-1',
             jobId: 'MorningPrepJob',
             executedAtIso: '2026-11-13T09:00:00Z',
-            displayTime: '06:00',
+            displayTime: '06:00 · 13/11',
             status: 'ok',
             message: 'Nota diária preparada com hábitos e agenda.',
             itemsProcessed: 1,
@@ -1113,7 +1113,7 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       const routineCards = panel.queryAll(By.css('.card.routine'));
       expect(routineCards.length).toBe(3);
       const triageBadge = routineCards[1].query(By.css('.pill.warn')).nativeElement as HTMLElement;
-      expect(triageBadge.textContent?.trim()).toBe('2 no inbox');
+      expect(triageBadge.textContent?.trim()).toBe('Pendente');
 
       const inboxRows = panel.queryAll(By.css('.row'));
       expect(inboxRows.length).toBe(2);
@@ -1122,9 +1122,22 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
       expect(initialLogRows.length).toBe(1);
 
       expect(getComputedStyle(routineCards[0].nativeElement).display).toBe('grid');
-      expect(getComputedStyle(initialLogRows[0].nativeElement).display).toBe('grid');
+      const logRowStyle = getComputedStyle(initialLogRows[0].nativeElement);
+      expect(logRowStyle.display).toBe('grid');
+      expect(logRowStyle.gridTemplateColumns).toMatch(/^120px\s/);
       expect(getComputedStyle(inboxRows[0].nativeElement).display).toBe('flex');
       expect(getComputedStyle(inboxRows[0].nativeElement).alignItems).toBe('center');
+
+      const codeProbe = document.createElement('pre');
+      codeProbe.className = 'code';
+      document.body.appendChild(codeProbe);
+      try {
+        const codeStyle = getComputedStyle(codeProbe);
+        expect(codeStyle.whiteSpace).toBe('pre-wrap');
+        expect(codeStyle.borderRadius).toBe('10px');
+      } finally {
+        codeProbe.remove();
+      }
 
       const triageBtn = panel.query(By.css('[data-routine-triage]')).nativeElement as HTMLButtonElement;
       expect(triageBtn.disabled).toBeFalse();
@@ -1174,8 +1187,8 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
               jobId: 'NightlyClosureJob',
               title: 'Nightly Closure',
               scheduleLabel: 'Diário às 23:30',
-              status: 'Agendado',
-              statusTone: 'accent',
+              status: 'Em dia',
+              statusTone: 'ok',
               lastRunSummary: 'Pronto para fechamento noturno'
             }
           ],
@@ -1185,7 +1198,7 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
               id: 'log-2',
               jobId: 'InboxTriageJob',
               executedAtIso: '2026-11-13T18:10:00Z',
-              displayTime: '15:10',
+              displayTime: '15:10 · 13/11',
               status: 'ok',
               message: '2 arquivo(s) triado(s) e arquivado(s).',
               itemsProcessed: 2,
@@ -1196,7 +1209,7 @@ describe('GranBrain Frontend Generative UI & App Suite', () => {
               id: 'log-1',
               jobId: 'MorningPrepJob',
               executedAtIso: '2026-11-13T09:00:00Z',
-              displayTime: '06:00',
+              displayTime: '06:00 · 13/11',
               status: 'ok',
               message: 'Nota diária preparada com hábitos e agenda.',
               itemsProcessed: 1,

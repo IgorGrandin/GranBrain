@@ -456,7 +456,8 @@ public sealed class ApiSecurityAndAgentTests
                         ["GranBrain:Auth:DefaultPassword"] = "GranBrain@2026",
                         ["GranBrain:Auth:MaxLoginAttemptsPerWindow"] = "5",
                         ["GranBrain:Auth:LoginWindowSeconds"] = "60",
-                        ["GranBrain:AllowedOrigins:0"] = "https://app.granbrain.com.br/"
+                        ["GranBrain:AllowedOrigins:0"] = "https://app.granbrain.com.br/",
+                        ["GranBrain:Routines:EnableBackgroundScheduler"] = "false"
                     });
                 });
             });
@@ -565,7 +566,8 @@ public sealed class ApiSecurityAndAgentTests
                     {
                         ["GranBrain:VaultPath"] = tempVault,
                         ["GranBrain:SyncStatusFilePath"] = syncStatusPath,
-                        ["GranBrain:TunnelMode"] = "cloudflare-tunnel"
+                        ["GranBrain:TunnelMode"] = "cloudflare-tunnel",
+                        ["GranBrain:Routines:EnableBackgroundScheduler"] = "false"
                     });
                 });
             });
