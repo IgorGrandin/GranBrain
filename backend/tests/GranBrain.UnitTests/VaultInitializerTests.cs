@@ -98,4 +98,39 @@ public sealed class VaultInitializerTests
             }
         }
     }
+
+    [Fact]
+    public async Task EnsureInitializedAsync_CreatesDailyTemplateWhenMissing_AndPreservesExistingCustomizations()
+    {
+        var tempVault = Path.Combine(Path.GetTempPath(), "GranBrainDailyTemplateInit_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(tempVault);
+            var guard = new VaultPathGuard(tempVault);
+            var initializer = new VaultInitializer(guard);
+
+            await initializer.EnsureInitializedAsync();
+
+            var dailyTemplatePath = Path.Combine(tempVault, "templates", "Notas Diárias.md");
+            Assert.True(File.Exists(dailyTemplatePath));
+            var createdContent = await File.ReadAllTextAsync(dailyTemplatePath, Encoding.UTF8);
+            Assert.Contains("#### Cronograma", createdContent);
+            Assert.Contains("#### Tarefas", createdContent);
+            Assert.Contains("#### Reflexões do Dia", createdContent);
+
+            const string customMarker = "\n<!-- custom-daily-template -->\n";
+            await File.AppendAllTextAsync(dailyTemplatePath, customMarker, Encoding.UTF8);
+
+            await initializer.EnsureInitializedAsync();
+            var afterSecondRun = await File.ReadAllTextAsync(dailyTemplatePath, Encoding.UTF8);
+            Assert.Contains(customMarker.Trim(), afterSecondRun);
+        }
+        finally
+        {
+            if (Directory.Exists(tempVault))
+            {
+                Directory.Delete(tempVault, true);
+            }
+        }
+    }
 }

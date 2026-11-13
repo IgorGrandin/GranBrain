@@ -70,6 +70,12 @@ public sealed class VaultInitializer
             await File.WriteAllTextAsync(reunioesTemplatePath, BuildReunioesTemplateMarkdown(), Encoding.UTF8, ct);
         }
 
+        var dailyTemplatePath = _guard.ResolveSafePath(Path.Combine("templates", "Notas Diárias.md"));
+        if (!File.Exists(dailyTemplatePath))
+        {
+            await File.WriteAllTextAsync(dailyTemplatePath, BuildDailyTemplateMarkdown(), Encoding.UTF8, ct);
+        }
+
         foreach (var file in Directory.EnumerateFiles(templatesDir, "*.md", SearchOption.TopDirectoryOnly))
         {
             var content = await File.ReadAllTextAsync(file, Encoding.UTF8, ct);
@@ -394,5 +400,43 @@ public sealed class VaultInitializer
         FROM "zettelkasten"
         WHERE contains(file.outlinks, this.file.link)
         ```
+        """;
+
+    private static string BuildDailyTemplateMarkdown() => """
+        ---
+        type: daily
+        created: "{{date:YYYY-MM-DD}}"
+        tags:
+          - daily
+        ---
+
+        # {{date:DD MMMM, YYYY (dddd)}}
+
+        ## 📅 Cronograma, Tarefas e Anotações
+
+        #### Cronograma
+
+        - [ ] 07:00 - Colocar Alanna na perua
+        - [ ] 07:30 - Orar/Ler Bíblia
+        - [ ] 08:15 - Exercícios Matinais
+        - [ ] 09:00 - Iniciar Trabalho
+        - [ ] 09:30 - Café da manhã
+        - [ ] 12:30 - Almoço
+        - [ ] 18:00 - Finalizar Trabalho
+
+        #### Tarefas
+
+        - [[Profissional]]
+        - [[Pessoal]]
+
+        #### Diário
+
+        #### Reflexões do Dia
+
+        > **Reflexões:**
+
+        > **Agradecimentos:**
+
+        #### Anotações
         """;
 }

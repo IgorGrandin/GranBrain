@@ -4,7 +4,7 @@ overview: "Implementar o motor de rotinas autônomas noturnas/matinais e triagem
 todos:
   - id: fatia-1-routines-engine-vault-and-scheduler
     content: "Implementar opções, contratos C#, RoutineExecutionService (InboxTriageJob, NightlyClosureJob, MorningPrepJob), RoutineSchedulerHostedService, template Notas Diárias e paridade de contagem .md/.txt em ObsidianVaultService"
-    status: pending
+    status: completed
   - id: fatia-2-api-routines-endpoints-and-orchestrator
     content: "Expor endpoints REST protegidos /api/routines/* em Program.cs, configurar appsettings.json e integrar intenção de rotinas/triagem em AgentOrchestratorService emitindo routines-panel"
     status: pending

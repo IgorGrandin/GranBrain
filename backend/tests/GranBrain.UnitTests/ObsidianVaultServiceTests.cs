@@ -300,4 +300,32 @@ public sealed class ObsidianVaultServiceTests
             }
         }
     }
+
+    [Fact]
+    public async Task GetOverviewAsync_CountsMdAndTxtTopLevelInboxFiles_IgnoringArchiveAndJson()
+    {
+        var tempVault = Path.Combine(Path.GetTempPath(), "GranBrainInboxCountTest_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tempVault, "inbox", "_archive"));
+            await File.WriteAllTextAsync(Path.Combine(tempVault, "inbox", "nota.md"), "Conteúdo md", Encoding.UTF8);
+            await File.WriteAllTextAsync(Path.Combine(tempVault, "inbox", "captura.txt"), "Conteúdo txt", Encoding.UTF8);
+            await File.WriteAllTextAsync(Path.Combine(tempVault, "inbox", "meta.json"), "{}", Encoding.UTF8);
+            await File.WriteAllTextAsync(Path.Combine(tempVault, "inbox", "_archive", "antigo.md"), "Arquivado", Encoding.UTF8);
+
+            var guard = new VaultPathGuard(tempVault);
+            var initializer = new VaultInitializer(guard);
+            var service = new ObsidianVaultService(guard, initializer);
+
+            var overview = await service.GetOverviewAsync(new DateOnly(2026, 10, 30));
+            Assert.Equal(2, overview.InboxPendingCount);
+        }
+        finally
+        {
+            if (Directory.Exists(tempVault))
+            {
+                Directory.Delete(tempVault, true);
+            }
+        }
+    }
 }

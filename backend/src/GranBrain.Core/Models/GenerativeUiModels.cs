@@ -10,6 +10,7 @@ public static class GenerativeUiBlockTypes
     public const string IdeaCapture = "idea-capture";
     public const string BrainstormCanvas = "brainstorm-canvas";
     public const string AgendaTimeline = "agenda-timeline";
+    public const string RoutinesPanel = "routines-panel";
 }
 
 public sealed record KpiMetricItemDto(
@@ -44,7 +45,8 @@ public sealed record GenerativeUiBlock(
     DynamicFormSchemaDto? Form = null,
     IReadOnlyList<VaultNoteSummaryDto>? Notes = null,
     IdeasOverviewDto? IdeasOverview = null,
-    CalendarTodayDto? CalendarAgenda = null);
+    CalendarTodayDto? CalendarAgenda = null,
+    RoutinesOverviewDto? RoutinesOverview = null);
 
 public sealed record AiProviderStatusDto(
     string Id,

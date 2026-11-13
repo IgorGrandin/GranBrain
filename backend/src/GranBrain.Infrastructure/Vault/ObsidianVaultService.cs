@@ -58,7 +58,9 @@ public sealed class ObsidianVaultService : IVaultService
             ? Directory.EnumerateFiles(dailyDir, "*.md", SearchOption.TopDirectoryOnly).Count()
             : 0;
         var inboxCount = Directory.Exists(inboxDir)
-            ? Directory.EnumerateFiles(inboxDir, "*.md", SearchOption.TopDirectoryOnly).Count()
+            ? Directory.EnumerateFiles(inboxDir, "*.*", SearchOption.TopDirectoryOnly)
+                .Count(f => f.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ||
+                            f.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
             : 0;
 
         var recentNotes = await QueryNotesAsync(null, null, 8, ct);
